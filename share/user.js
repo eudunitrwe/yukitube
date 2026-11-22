@@ -28,6 +28,12 @@ user_pref("browser.link.open_newwindow.override.external", 1);
 user_pref("browser.tabs.inTitlebar", 0);
 user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 
+// Let YouTube start playing on its own: a video opened from the YukiTube
+// remote, or the play button pressed there, never counts as a click on the
+// page, so Firefox's autoplay blocking would keep it silent and paused.
+user_pref("media.autoplay.default", 0);
+user_pref("media.autoplay.blocking_policy", 0);
+
 // Dark, like the desktop.
 user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
 user_pref("layout.css.prefers-color-scheme.content-override", 0);

@@ -1,59 +1,87 @@
-Instalare YukiTube pe Windows 10 / 11
-=====================================
+Instalare YukiTube 0.3.1 pe Windows 10 / 11
+===========================================
 
-CE ITI TREBUIE
-
-Firefox. Daca nu il ai, instaleaza-l de pe https://www.mozilla.org/firefox/
-sau din Command Prompt:
-
-    winget install Mozilla.Firefox
+Nu ai nevoie de Firefox, de Python și nici de drepturi de administrator:
+totul e în arhivă.
 
 
-1. DEZARHIVEAZA
+0. DACĂ AI AVUT NEONTUBE SEPARAT
 
-Click dreapta pe yukitube-0.1.0-windows.zip > „Extract All...” (Extrage tot).
-Nu porni instalarea direct din fereastra arhivei: dezarhiveaza intai.
-
-
-2. INSTALEAZA
-
-In folderul dezarhivat, dublu-click pe:
-
-    Instaleaza.cmd
-
-Se deschide o fereastra neagra care spune „YukiTube is installed”.
-Apasa orice tasta ca sa o inchizi.
-
-Daca Windows afiseaza „Windows protected your PC” (SmartScreen), apasa
-„More info” (Mai multe informatii), apoi „Run anyway” (Executa oricum).
-
-Vrei si o scurtatura pe desktop? Foloseste in loc:
-
-    Instaleaza-cu-scurtatura-pe-desktop.cmd
+Telecomanda NeonTube e acum telecomanda YukiTube. Închide vechiul NeonTube
+(meniul ⋮ > Ieșire), rulează Sterge-scurtaturi.cmd din folderul lui vechi,
+apoi șterge acel folder. Altfel ocupă portul 8975 și YukiTube nu își poate
+porni telecomanda. Setările telecomenzii rămân și sunt folosite mai departe.
 
 
-3. PORNESTE
+1. DEZARHIVEAZĂ
 
-Deschide meniul Start si cauta „YukiTube”. La prima pornire, YukiTube isi
-creeaza profilul si instaleaza cele doua extensii din arhiva, fara sa
-descarce nimic.
+Click dreapta pe yukitube-0.3.1-windows-x64.zip > „Extract All...”
+(Extrage tot) și alege unde să pună folderul: de exemplu Documente,
+Desktop sau un stick USB.
 
-Dupa instalare poti sterge folderul dezarhivat.
+  - Nu porni YukiTube direct din fereastra arhivei; dezarhivează întâi.
+  - Nu pune folderul în C:\Program Files: acolo YukiTube nu își poate
+    salva profilul.
+
+
+2. OPȚIONAL: SCURTĂTURI
+
+În folderul YukiTube dezarhivat, dublu-click pe:
+
+    Creeaza-scurtaturi.cmd
+
+YukiTube apare în meniul Start și pe Desktop. Se deschide o fereastră
+neagră care confirmă; apasă orice tastă ca să o închizi. Scurtăturile
+duc la folderul ales la pasul 1, deci nu îl muta după aceea (sau rulează
+din nou Creeaza-scurtaturi.cmd după mutare).
+
+
+3. PRIMA PORNIRE
+
+Dublu-click pe YukiTube.exe (sau pe scurtătura YukiTube).
+
+  a. Dacă Windows afișează „Windows protected your PC” (SmartScreen),
+     apasă „More info” (Mai multe informații), apoi „Run anyway”
+     (Execută oricum). Apare doar la prima pornire.
+  b. Se deschid fereastra YouTube și telecomanda YukiTube. Prima pornire
+     durează câteva secunde în plus: YukiTube își creează profilul în
+     folderul Data și instalează extensiile.
+  c. După circa 10 secunde apare pagina Violentmonkey pentru
+     „YukiTube Bridge”. Apasă „Instalează” (Install).
+  d. Închide pagina Violentmonkey cu „Închide” (Close) sau cu Ctrl+W.
+     Revii la YouTube.
+  e. Pornește un videoclip. Punctul de lângă logo-ul telecomenzii devine
+     verde: gata.
+
+Pagina de la pasul c apare o singură dată. Dacă ai închis-o fără să
+instalezi, sau punctul nu se face verde: în telecomandă, meniul ⋮ >
+„Conectează YukiTube (instalează puntea)”, apoi reîncarcă YouTube cu F5.
+
+
+MUTARE PE ALT CALCULATOR
+
+Copiază tot folderul YukiTube, inclusiv Data. Te vei găsi autentificat și
+cu aceleași setări.
 
 
 DEZINSTALARE
 
-Dublu-click pe Dezinstaleaza.cmd (din folderul dezarhivat). Asta sterge
-scurtaturile, dar pastreaza profilul (autentificare, istoric). Ca sa stergi
-tot, inclusiv profilul, foloseste Dezinstaleaza-tot.cmd.
+Închide YukiTube și telecomanda, dublu-click pe Sterge-scurtaturi.cmd,
+apoi șterge folderul YukiTube. Nu rămâne nimic instalat.
 
 
-DACA CEVA NU MERGE
+DACĂ CEVA NU MERGE
 
-  - „Firefox is not installed”: instaleaza Firefox (vezi sus) si ruleaza
-    din nou Instaleaza.cmd.
-  - „running scripts is disabled”: porneste prin fisierele .cmd, nu prin
-    .ps1; ele ocolesc restrictia doar pentru acest script.
-  - Extensiile nu apar: inchide YukiTube, sterge folderul
-    %LOCALAPPDATA%\yukitube\profile\extensions si ruleaza din nou
-    Instaleaza.cmd.
+  - „Firefox lipsește din ...” sau „Telecomanda YukiTube lipsește din
+    ...”: arhiva nu a fost dezarhivată complet. Dezarhivează din nou toată
+    arhiva.
+  - „YukiTube nu poate scrie în ...”: mută folderul într-un loc unde ai
+    drept de scriere (Documente, Desktop, stick USB).
+  - Nu apare telecomanda: închide vechiul NeonTube, dacă îl ai (pasul 0).
+    Unele antivirusuri blochează la prima pornire pythonw.exe din
+    App\Remote\runtime; permite-l.
+  - „running scripts is disabled”: pornește scurtăturile prin fișierele
+    .cmd, nu prin App\shortcuts.ps1.
+  - Extensiile nu apar: închide YukiTube, șterge folderul
+    Data\profile\extensions și pornește din nou YukiTube.exe.
+  - Vrei să o iei de la zero: închide YukiTube și șterge folderul Data.

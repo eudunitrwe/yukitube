@@ -1,10 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="14" fill="#16161a"/>
-  <rect x="8" y="15" width="48" height="34" rx="9" fill="#FFD60A"/>
-  <path d="M27 23.5 L41 32 L27 40.5 Z" fill="#16161a"/>
-  <g stroke="#e8eef6" stroke-width="2" stroke-linecap="round" transform="translate(50 50)">
-    <line x1="0" y1="-7" x2="0" y2="7"/>
-    <line x1="-6.06" y1="-3.5" x2="6.06" y2="3.5"/>
-    <line x1="-6.06" y1="3.5" x2="6.06" y2="-3.5"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12022b"/><stop offset=".55" stop-color="#3a0a5e"/><stop offset="1" stop-color="#14031f"/></linearGradient>
+<linearGradient id="sun" gradientUnits="userSpaceOnUse" x1="0" y1="51.2" x2="0" y2="163.84"><stop offset="0" stop-color="#ffd319"/><stop offset=".5" stop-color="#ff901f"/><stop offset="1" stop-color="#ff2a6d"/></linearGradient>
+<linearGradient id="border" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2a6d"/><stop offset="1" stop-color="#05d9e8"/></linearGradient>
+<radialGradient id="glow"><stop offset="0" stop-color="#05d9e8" stop-opacity=".47"/><stop offset="1" stop-color="#05d9e8" stop-opacity="0"/></radialGradient>
+<clipPath id="clip"><rect x="5.12" y="5.12" width="245.76" height="245.76" rx="56.32"/></clipPath>
+<mask id="stripes"><rect width="256" height="163.84" fill="#fff"/>
+<rect y="112.64" width="256" height="4.61" fill="#000"/>
+<rect y="124.62" width="256" height="5.76" fill="#000"/>
+<rect y="139.6" width="256" height="7.2" fill="#000"/>
+<rect y="158.32" width="256" height="9" fill="#000"/>
+</mask></defs>
+<g clip-path="url(#clip)"><rect width="256" height="256" fill="url(#bg)"/>
+<circle cx="128" cy="128" r="76.8" fill="url(#sun)" mask="url(#stripes)"/>
+<rect y="163.84" width="256" height="92.16" fill="#140228" fill-opacity=".9"/>
+<g stroke="#ff2a6d" stroke-width="3.07"><line x1="66.56" y1="163.84" x2="-271.36" y2="256"/><line x1="76.8" y1="163.84" x2="-204.8" y2="256"/><line x1="87.04" y1="163.84" x2="-138.24" y2="256"/><line x1="97.28" y1="163.84" x2="-71.68" y2="256"/><line x1="107.52" y1="163.84" x2="-5.12" y2="256"/><line x1="117.76" y1="163.84" x2="61.44" y2="256"/><line x1="128" y1="163.84" x2="128" y2="256"/><line x1="138.24" y1="163.84" x2="194.56" y2="256"/><line x1="148.48" y1="163.84" x2="261.12" y2="256"/><line x1="158.72" y1="163.84" x2="327.68" y2="256"/><line x1="168.96" y1="163.84" x2="394.24" y2="256"/><line x1="179.2" y1="163.84" x2="460.8" y2="256"/><line x1="189.44" y1="163.84" x2="527.36" y2="256"/><line x1="0" y1="163.84" x2="256" y2="163.84"/><line x1="0" y1="170.75" x2="256" y2="170.75"/><line x1="0" y1="191.49" x2="256" y2="191.49"/><line x1="0" y1="226.05" x2="256" y2="226.05"/></g>
+<line x1="0" y1="163.84" x2="256" y2="163.84" stroke="#05d9e8" stroke-width="5.12"/>
+<circle cx="133.12" cy="112.64" r="102.4" fill="url(#glow)"/>
+<path d="M94.72 61.44L184.32 112.64L94.72 163.84Z" fill="#fff" stroke="#05d9e8" stroke-width="6.4" stroke-linejoin="round"/>
+</g>
+<rect x="5.12" y="5.12" width="245.76" height="245.76" rx="56.32" fill="none" stroke="url(#border)" stroke-width="7.68"/>
 </svg>

@@ -1,7 +1,35 @@
-/* Written by YukiTube at every launch; edits here are overwritten. */
+/* Written by YukiTube at every launch; edits here are overwritten.
+ * The window wears the remote's retrowave colors. */
 
 :root {
-  --yukitube-accent: @ACCENT@;
+  --yukitube-pink: #ff2a6d;
+  --yukitube-cyan: #05d9e8;
+  --yukitube-magenta: #d300c5;
+  --yukitube-night: #12022b;
+  --yukitube-dusk: #2a0848;
+  --yukitube-text: #f6ecff;
+  --yukitube-muted: #bfa3e0;
+
+  --lwt-accent-color: var(--yukitube-night) !important;
+  --lwt-text-color: var(--yukitube-text) !important;
+  --toolbar-bgcolor: var(--yukitube-night) !important;
+  --toolbar-color: var(--yukitube-text) !important;
+  --toolbar-field-background-color: #1c0538 !important;
+  --toolbar-field-focus-background-color: #1c0538 !important;
+  --toolbar-field-color: var(--yukitube-text) !important;
+  --toolbar-field-focus-color: var(--yukitube-text) !important;
+  --toolbar-field-border-color: rgba(255, 42, 109, .35) !important;
+  --toolbar-field-focus-border-color: var(--yukitube-cyan) !important;
+  --urlbar-box-bgcolor: #1c0538 !important;
+  --urlbar-box-hover-bgcolor: #2a0848 !important;
+  --arrowpanel-background: #170430 !important;
+  --arrowpanel-color: var(--yukitube-text) !important;
+  --arrowpanel-border-color: rgba(255, 42, 109, .45) !important;
+  --focus-outline-color: var(--yukitube-cyan) !important;
+  --button-hover-bgcolor: rgba(255, 42, 109, .18) !important;
+  --toolbarbutton-hover-background: rgba(255, 42, 109, .18) !important;
+  --toolbarbutton-active-background: rgba(5, 217, 232, .22) !important;
+  --tab-selected-bgcolor: var(--yukitube-dusk) !important;
 }
 
 /* An app, not a browser: no tab strip. */
@@ -9,10 +37,33 @@
   visibility: collapse !important;
 }
 
+#navigator-toolbox {
+  background: linear-gradient(180deg, var(--yukitube-night), var(--yukitube-dusk)) !important;
+  border-bottom: none !important;
+}
+
 #nav-bar {
-  border-bottom: 2px solid var(--yukitube-accent) !important;
+  background: transparent !important;
+  border-bottom: 2px solid transparent !important;
+  border-image: linear-gradient(90deg, var(--yukitube-pink), var(--yukitube-magenta), var(--yukitube-cyan)) 1 !important;
+  box-shadow: 0 2px 12px rgba(255, 42, 109, .35) !important;
+}
+
+#urlbar-background {
+  border-radius: 8px !important;
 }
 
 #urlbar[focused] > #urlbar-background {
-  outline: 2px solid var(--yukitube-accent) !important;
+  outline: 2px solid var(--yukitube-cyan) !important;
+  box-shadow: 0 0 10px rgba(5, 217, 232, .55) !important;
+}
+
+#urlbar-input::selection {
+  background-color: var(--yukitube-pink) !important;
+  color: #fff !important;
+}
+
+toolbarbutton:hover > .toolbarbutton-icon,
+toolbarbutton:hover > .toolbarbutton-badge-stack {
+  fill: var(--yukitube-cyan) !important;
 }

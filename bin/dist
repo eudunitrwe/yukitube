@@ -1,66 +1,185 @@
 #!/bin/bash
-# Builds the two release archives in dist/:
+# Builds the two release archives in dist/, one per system:
 #
-#   yukitube-<version>-linux.tar.gz    launcher, Arch package, per-user installer
-#   yukitube-<version>-windows.zip     PowerShell installer and .cmd wrappers
+#   yukitube-<version>-linux-x86_64.tar.gz   launcher, YukiTube remote (built
+#                                            binary), Arch package, per-user
+#                                            installer
+#   yukitube-<version>-windows-x64.zip       portable folder: YukiTube.exe, its
+#                                            own Firefox, the remote (embedded
+#                                            Python + Qt)
 #
 # Each carries the verified add-ons, so installing needs no download.
+# Needs: uv, mise (for Go), makepkg, zip, bsdtar, curl, binutils.
 set -euo pipefail
+
+# Firefox for Windows, 64-bit, Romanian. To update, take the line for
+# win64/ro/ from https://ftp.mozilla.org/pub/firefox/releases/<version>/SHA256SUMS
+FIREFOX_VERSION=160.0.1
+FIREFOX_LOCALE=ro
+FIREFOX_SHA256=f8eb37e54039c51753fd83864e3e09634450eeee59303b0aa54419a638078a0e
+# Python for the remote on Windows (the "embeddable package" from python.org).
+PYTHON_WIN=3.12.10
+PYTHON_WIN_SHA256=4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3
+PYSIDE=6.12.0
+GO=go@1.27.4
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 version=$(sed -n 's/^pkgver=//p' "$root/pkgbuild/PKGBUILD")
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/yukitube
 dist=$root/dist
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+mkdir -p "$cache" "$dist"
 
-# Download each add-on once and check it against addons.tsv.
+fetch() { # url sha256 file
+  if [[ ! -f $3 ]] || ! echo "$2  $3" | sha256sum --quiet -c - 2>/dev/null; then
+    curl -fsSL --max-time 600 -o "$3.part" "$1"
+    echo "$2  $3.part" | sha256sum --quiet -c -
+    mv "$3.part" "$3"
+  fi
+}
+
+# Text files for Windows get CRLF and a BOM so Notepad shows them right.
+crlf() { { printf '\xef\xbb\xbf'; sed 's/$/\r/' "$1"; } >"$2"; }
+
+echo "==> add-ons"
 mkdir -p "$work/addons"
 while IFS=$'\t' read -r name guid url sha256; do
   [[ -z $name || $name == \#* ]] && continue
-  curl -fsSL --max-time 120 -o "$work/addons/$guid.xpi" "$url"
-  echo "$sha256  $work/addons/$guid.xpi" | sha256sum --quiet -c -
+  fetch "$url" "$sha256" "$cache/$guid.xpi"
+  cp "$cache/$guid.xpi" "$work/addons/"
 done <"$root/share/addons.tsv"
 
 stage_share() {
   mkdir -p "$1"
-  cp "$root/share/addons.tsv" "$root/share/user.js" "$root/share/userChrome.css" "$1/"
+  cp "$root/share/addons.tsv" "$root/share/user.js" "$root/share/userChrome.css" "$root/share/userContent.css" "$1/"
   cp -r "$work/addons" "$1/addons"
 }
 
-# Linux.
-(cd "$root/pkgbuild" && makepkg -f >/dev/null)
-linux=$work/yukitube-$version-linux
+# The remote's Python files and assets, with the bridge userscript built in.
+stage_remote_app() {
+  mkdir -p "$1"
+  cp "$root"/remote/app/*.py "$1/"
+  cp -r "$root/remote/app/assets" "$1/assets"
+  cat "$root/remote/browser/userscript-header.js" "$root/remote/browser/agent-core.js" \
+    "$root/remote/browser/userscript-glue.js" >"$1/assets/yukitube.user.js"
+}
+
+# ------------------------------------------------------------------ Linux
+echo "==> linux: remote (PyInstaller)"
+venv=$cache/venv
+[[ -x $venv/bin/python ]] || uv venv -q --python 3.12 "$venv"
+uv pip install -q --python "$venv/bin/python" "PySide6-Essentials==$PYSIDE" pyinstaller
+stage_remote_app "$work/remote-src"
+(cd "$work/remote-src" && "$venv/bin/python" -m PyInstaller --noconfirm --clean --windowed --log-level WARN \
+  --name yukitube-remote \
+  --distpath "$work/pyi/dist" --workpath "$work/pyi/work" --specpath "$work/pyi" \
+  --add-data "$work/remote-src/assets:assets" \
+  --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick \
+  --exclude-module PySide6.QtOpenGL --exclude-module PySide6.QtPdf --exclude-module PySide6.QtDBus \
+  yukitube_remote.py)
+rbin=$work/pyi/dist/yukitube-remote
+# Portability: drop the host's own libraries PyInstaller picked up (they need
+# this machine's very new glibc). Python and Qt come from manylinux builds;
+# the rest (X11/Wayland/fontconfig/OpenSSL) is on every Linux desktop.
+int=$rbin/_internal
+find "$int" -maxdepth 1 -type f -name 'lib*.so*' ! -name 'libpython3*' -delete
+qt=$int/PySide6/Qt
+rm -rf "$qt/translations" "$qt/plugins/egldeviceintegrations" "$qt/plugins/platformthemes/libqgtk3.so" \
+  "$qt/lib/libQt6EglFSDeviceIntegration.so.6"
+for x in eglfs linuxfb minimalegl minimal vkkhrdisplay vnc; do rm -f "$qt/plugins/platforms/libq$x.so"; done
+rm -f "$qt/plugins/imageformats/"libq{pdf,tiff,webp,icns,tga,wbmp}.so
+find "$int" -name '*.so*' -type f -exec strip --strip-unneeded {} + 2>/dev/null || true
+glibc=$(find "$int" "$rbin/yukitube-remote" -type f \( -name '*.so*' -o -name yukitube-remote \) -exec objdump -T {} + 2>/dev/null |
+  grep -o 'GLIBC_2\.[0-9]*' | sort -t. -k2 -n -u | tail -1)
+echo "    the remote needs $glibc or newer"
+
+echo "==> linux: Arch package"
+# --nodeps: the dependencies are for the machine that installs it.
+(cd "$root/pkgbuild" && makepkg -f --nodeps >/dev/null)
+
+linux=$work/yukitube-$version-linux-x86_64
 mkdir -p "$linux/bin"
 cp "$root/bin/yukitube" "$linux/bin/"
 cp "$root/bin/install-user" "$linux/install.sh"
 stage_share "$linux/share"
+cp -r "$rbin" "$linux/share/remote"
 cp "$root/pkgbuild/yukitube.desktop" "$root/pkgbuild/yukitube.svg" "$root/LICENSE" "$linux/"
 cp "$root/pkgbuild/yukitube-$version-1-any.pkg.tar.zst" "$linux/"
 cp "$root/dist-docs/linux/README.md" "$root/dist-docs/linux/INSTALARE.md" "$linux/"
+chmod +x "$linux/install.sh" "$linux/bin/yukitube"
 
-# Windows: plain .cmd files to double-click, which start PowerShell with the
-# script policy relaxed for that one script. Text files get CRLF and a BOM
-# so Notepad shows them right.
-windows=$work/yukitube-$version-windows
-mkdir -p "$windows/windows"
-cp "$root/windows/install.ps1" "$root/windows/uninstall.ps1" "$root/windows/yukitube.ico" "$windows/windows/"
-stage_share "$windows/share"
-cmd() {
-  printf '@echo off\r\nrem %s\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%%~dp0windows\\%s" %s\r\npause\r\n' "$2" "$3" "$4" >"$windows/$1"
-}
-cmd Instaleaza.cmd "Installs YukiTube for this user." install.ps1 ""
-cmd Instaleaza-cu-scurtatura-pe-desktop.cmd "Installs YukiTube with a desktop shortcut." install.ps1 "-Desktop"
-cmd Dezinstaleaza.cmd "Removes YukiTube's shortcuts, keeping its profile." uninstall.ps1 ""
-cmd Dezinstaleaza-tot.cmd "Removes YukiTube and its profile." uninstall.ps1 "-RemoveData"
-for f in README.txt INSTALARE.txt; do
-  { printf '\xef\xbb\xbf'; sed 's/$/\r/' "$root/dist-docs/windows/$f"; } >"$windows/$f"
+# ---------------------------------------------------------------- Windows
+echo "==> windows: Firefox"
+win=$work/YukiTube
+mkdir -p "$win/App"
+setup=$cache/firefox-setup-$FIREFOX_VERSION-win64-$FIREFOX_LOCALE.exe
+fetch "https://ftp.mozilla.org/pub/firefox/releases/$FIREFOX_VERSION/win64/$FIREFOX_LOCALE/Firefox%20Setup%20$FIREFOX_VERSION.exe" "$FIREFOX_SHA256" "$setup"
+# The official installer is a 7-Zip archive; its core/ folder is the program.
+mkdir -p "$work/setup"
+bsdtar -xf "$setup" -C "$work/setup"
+[[ -f $work/setup/core/firefox.exe ]] || { echo "No firefox.exe in the installer" >&2; exit 1; }
+mv "$work/setup/core" "$win/App/Firefox"
+install -Dm644 "$root/portable/policies.json" "$win/App/Firefox/distribution/policies.json"
+stage_share "$win/App/share"
+
+echo "==> windows: remote (embedded Python + PySide6)"
+rt=$win/App/Remote/runtime
+mkdir -p "$rt"
+embed=$cache/python-$PYTHON_WIN-embed-amd64.zip
+fetch "https://www.python.org/ftp/python/$PYTHON_WIN/python-$PYTHON_WIN-embed-amd64.zip" "$PYTHON_WIN_SHA256" "$embed"
+bsdtar -xf "$embed" -C "$rt"
+pth=$(ls "$rt"/python3*._pth)
+printf '%s\r\n' "$(basename "$(ls "$rt"/python3*.zip)")" "." 'Lib\site-packages' '..\app' "import site" >"$pth"
+sp=$cache/win-site-packages
+if [[ ! -f $sp/pyside6_essentials-$PYSIDE.dist-info/METADATA ]]; then
+  rm -rf "$sp"
+  uv pip install -q --target "$sp" --python-platform x86_64-pc-windows-msvc --python-version 3.12 "PySide6-Essentials==$PYSIDE"
+fi
+lib=$rt/Lib/site-packages
+mkdir -p "$lib/PySide6/plugins" "$lib/shiboken6"
+# Only what the remote uses: QtCore, QtGui, QtWidgets, QtNetwork, QtSvg.
+(cd "$sp/shiboken6" && cp __init__.py _config.py _git_shiboken_module_version.py Shiboken.pyd shiboken6.abi3.dll \
+  msvcp140*.dll vcruntime140*.dll concrt140.dll "$lib/shiboken6/")
+(cd "$sp/PySide6" && cp __init__.py _config.py _git_pyside_version.py pyside6.abi3.dll \
+  QtCore.pyd QtGui.pyd QtWidgets.pyd QtNetwork.pyd QtSvg.pyd \
+  Qt6Core.dll Qt6Gui.dll Qt6Widgets.dll Qt6Network.dll Qt6Svg.dll \
+  msvcp140*.dll vcruntime140*.dll concrt140.dll "$lib/PySide6/")
+cp -r "$sp/PySide6/support" "$lib/PySide6/" 2>/dev/null || true
+for d in platforms imageformats iconengines tls styles networkinformation; do
+  [[ -d $sp/PySide6/plugins/$d ]] && cp -r "$sp/PySide6/plugins/$d" "$lib/PySide6/plugins/"
 done
-{ printf '\xef\xbb\xbf'; sed 's/$/\r/' "$root/LICENSE"; } >"$windows/LICENSE.txt"
+rm -f "$lib/PySide6/plugins/imageformats/"{qpdf,qtiff,qwebp,qicns,qtga,qwbmp}.dll
+rm -f "$lib/PySide6/plugins/platforms/"{qdirect2d,qminimal}.dll
+cp -r "$sp"/pyside6_essentials-*.dist-info "$sp"/shiboken6-*.dist-info "$lib/"
+stage_remote_app "$win/App/Remote/app"
 
-mkdir -p "$dist"
-rm -f "$dist/yukitube-$version-linux.tar.gz" "$dist/yukitube-$version-windows.zip"
-tar -czf "$dist/yukitube-$version-linux.tar.gz" -C "$work" "yukitube-$version-linux"
-(cd "$work" && zip -qr "$dist/yukitube-$version-windows.zip" "yukitube-$version-windows")
+echo "==> windows: YukiTube.exe"
+cp -r "$root/portable/launcher" "$work/launcher"
+(
+  cd "$work/launcher"
+  mise exec "$GO" -- go run github.com/akavel/rsrc@v0.10.2 -arch amd64 -ico "$root/windows/yukitube.ico" -o rsrc_windows_amd64.syso
+  GOOS=windows GOARCH=amd64 CGO_ENABLED=0 mise exec "$GO" -- go build -trimpath -ldflags "-s -w -H=windowsgui" -o "$win/YukiTube.exe" .
+)
+
+crlf "$root/windows/shortcuts.ps1" "$win/App/shortcuts.ps1"
+cmd() { # file comment arguments
+  printf '@echo off\r\nrem %s\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%%~dp0App\\shortcuts.ps1" %s\r\npause\r\n' "$2" "$3" >"$win/$1"
+}
+cmd Creeaza-scurtaturi.cmd "Adds YukiTube to the Start menu and the desktop." ""
+cmd Sterge-scurtaturi.cmd "Removes the YukiTube shortcuts." "-Remove"
+crlf "$root/dist-docs/windows/README.txt" "$win/README.txt"
+crlf "$root/dist-docs/windows/INSTALARE.txt" "$win/INSTALARE.txt"
+crlf "$root/LICENSE" "$win/LICENSE.txt"
+
+# ---------------------------------------------------------------- archives
+echo "==> archives"
+tgz=$dist/yukitube-$version-linux-x86_64.tar.gz
+zip=$dist/yukitube-$version-windows-x64.zip
+rm -f "$tgz" "$zip"
+tar -czf "$tgz" -C "$work" "yukitube-$version-linux-x86_64"
+(cd "$work" && zip -qr -9 "$zip" YukiTube)
+(cd "$dist" && sha256sum "$(basename "$tgz")" "$(basename "$zip")" >"yukitube-$version-SHA256SUMS")
 
 echo "Built:"
-ls -lh "$dist"/yukitube-"$version"-*
+ls -lh "$tgz" "$zip"

@@ -1,84 +1,205 @@
 # YukiTube
 
-YouTube într-o fereastră proprie de Firefox, fără reclame și fără „Video întrerupt. Continui vizionarea?”.
+**🇬🇧 YouTube in its own retrowave Firefox window — no ads, no "Video paused. Continue watching?", with a small remote that controls it. For Linux and Windows 10/11.**
 
-YukiTube rulează Firefox pe un profil separat (autentificarea, istoricul și extensiile nu se amestecă cu Firefox-ul tău obișnuit), fără bara de taburi, cu două add-on-uri instalate din start:
+**🇷🇴 YouTube într-o fereastră proprie de Firefox, în stil retrowave — fără reclame, fără „Continui vizionarea?”, cu o telecomandă mică ce o controlează. Pentru Linux și Windows 10/11.**
+
+Made by **[eudunitrwe](https://github.com/eudunitrwe)** with the help of **[Claude Code](https://claude.com/claude-code)**.
+Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude Code](https://claude.com/claude-code)**.
+
+### ⬇️ [Download / Descarcă (Releases)](https://github.com/eudunitrwe/yukitube/releases/latest)
+
+| | File / Fișier |
+| --- | --- |
+| 🐧 Linux (x86_64) | `yukitube-<version>-linux-x86_64.tar.gz` |
+| 🪟 Windows 10/11 (x64, portable) | `yukitube-<version>-windows-x64.zip` |
+
+---
+
+## 🇬🇧 English
+
+### What it does
+
+YukiTube opens YouTube in a separate Firefox profile that looks like a standalone app (no tab bar, dark neon purple/pink/cyan theme). Your login, history and extensions stay apart from your normal Firefox. It comes with three add-ons preinstalled from addons.mozilla.org:
+
+- **uBlock Origin** blocks ads, including YouTube video ads.
+- **YouTube NonStop** automatically dismisses "Continue watching?".
+- **Violentmonkey** runs the "YukiTube Bridge" userscript that lets the **YukiTube remote** (play/pause, search, volume, open videos) talk to the YouTube window.
+
+### Install on Linux
+
+Needs Firefox, `curl` and `jq` (x86_64, glibc 2.34+: Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
+
+```sh
+tar -xzf yukitube-<version>-linux-x86_64.tar.gz
+cd yukitube-<version>-linux-x86_64
+
+# Option A — Arch Linux (system package, recommended):
+sudo pacman -U yukitube-<version>-1-any.pkg.tar.zst      # uninstall: sudo pacman -R yukitube
+
+# Option B — any distro, no sudo (installs to ~/.local):
+./install.sh                                            # uninstall: ./install.sh --uninstall
+```
+
+Use only one option. Then launch **YukiTube** from your app launcher or run `yukitube`.
+
+### Install on Windows 10/11
+
+Nothing to install — Firefox and the remote are inside the archive, no admin rights needed.
+
+1. Right-click `yukitube-<version>-windows-x64.zip` → **Extract All…** (e.g. to Documents, Desktop or a USB stick — not `C:\Program Files`).
+2. Optional: double-click **`Creeaza-scurtaturi.cmd`** in the extracted `YukiTube` folder to add Start menu and Desktop shortcuts.
+3. Double-click **`YukiTube.exe`**. If SmartScreen says "Windows protected your PC", click **More info → Run anyway** (first run only).
+
+To uninstall: run `Sterge-scurtaturi.cmd`, then delete the `YukiTube` folder.
+
+### First run (both systems)
+
+After ~10 seconds a **Violentmonkey** page for "YukiTube Bridge" opens — click **Install**, then close it with `Ctrl+W`. Start a video: the dot next to the remote's logo turns **green** and you're done. If you missed it: remote menu **⋮ → "Conectează YukiTube"**, then press `F5` in YouTube.
+
+Full step-by-step instructions (in Romanian) are inside each archive: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
+
+---
+
+## 🇷🇴 Română
+
+### Ce face
+
+YukiTube deschide YouTube într-un profil separat de Firefox, care arată ca o aplicație (fără bara de taburi, culori neon mov/roz/cyan). Autentificarea, istoricul și extensiile nu se amestecă cu Firefox-ul tău obișnuit. Vine cu trei add-on-uri instalate din start, de pe addons.mozilla.org:
+
+- **uBlock Origin** blochează reclamele, inclusiv pe cele video de pe YouTube.
+- **YouTube NonStop** închide singur dialogul „Continui vizionarea?”.
+- **Violentmonkey** rulează scriptul „YukiTube Bridge”, prin care **telecomanda YukiTube** (pauză/redare, căutare, volum, deschis videoclipuri) vorbește cu fereastra YouTube.
+
+### Instalare pe Linux
+
+Ai nevoie de Firefox, `curl` și `jq` (x86_64, glibc 2.34+: Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
+
+```sh
+tar -xzf yukitube-<versiune>-linux-x86_64.tar.gz
+cd yukitube-<versiune>-linux-x86_64
+
+# Varianta A — Arch Linux (pachet de sistem, recomandat):
+sudo pacman -U yukitube-<versiune>-1-any.pkg.tar.zst     # dezinstalare: sudo pacman -R yukitube
+
+# Varianta B — orice distribuție, fără sudo (în ~/.local):
+./install.sh                                            # dezinstalare: ./install.sh --uninstall
+```
+
+Folosește doar una dintre variante. Apoi pornește **YukiTube** din launcher sau cu `yukitube` din terminal.
+
+### Instalare pe Windows 10/11
+
+Nu instalezi nimic: Firefox și telecomanda sunt în arhivă, nu ai nevoie de drepturi de administrator.
+
+1. Click dreapta pe `yukitube-<versiune>-windows-x64.zip` → **Extract All… (Extrage tot)**, de exemplu în Documente, pe Desktop sau pe un stick USB (nu în `C:\Program Files`).
+2. Opțional: dublu-click pe **`Creeaza-scurtaturi.cmd`** în folderul `YukiTube` dezarhivat, pentru scurtături în meniul Start și pe Desktop.
+3. Dublu-click pe **`YukiTube.exe`**. Dacă SmartScreen afișează „Windows protected your PC”, apasă **More info → Run anyway** (doar la prima pornire).
+
+Dezinstalare: rulează `Sterge-scurtaturi.cmd`, apoi șterge folderul `YukiTube`.
+
+### Prima pornire (ambele sisteme)
+
+După circa 10 secunde apare pagina **Violentmonkey** pentru „YukiTube Bridge”: apasă **Instalează (Install)**, apoi închide-o cu `Ctrl+W`. Pornește un videoclip: punctul de lângă logo-ul telecomenzii devine **verde** și gata. Dacă ai ratat pagina: în telecomandă, **⋮ → „Conectează YukiTube”**, apoi `F5` în YouTube.
+
+Instrucțiunile complete, pas cu pas, sunt în fiecare arhivă: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
+
+---
+
+## Detalii tehnice (pentru dezvoltatori)
+
+YukiTube rulează Firefox pe un profil separat (autentificarea, istoricul și extensiile nu se amestecă cu Firefox-ul tău obișnuit), fără bara de taburi, cu trei add-on-uri instalate din start:
 
 - **uBlock Origin** (GPL-3.0, Raymond Hill): blochează reclamele, inclusiv pe cele video de pe YouTube.
 - **YouTube NonStop** (MIT, Nikos Ioannou): închide singur dialogul „Continui vizionarea?”.
+- **Violentmonkey** (MIT): rulează userscript-ul „YukiTube Bridge”, puntea dintre tab-ul YouTube și telecomandă.
 
-Ambele sunt versiunile semnate de pe addons.mozilla.org, verificate cu SHA-256 la instalare. După aceea, Firefox le actualizează singur.
+Toate sunt versiunile semnate de pe addons.mozilla.org, verificate cu SHA-256 la instalare. După aceea, Firefox le actualizează singur.
 
-## Arch Linux
+### Cum lucrează împreună
+
+```
+yukitube / YukiTube.exe
+ ├─ pregătește profilul Firefox (add-on-uri, user.js, userChrome.css, userContent.css)
+ ├─ pornește telecomanda (dacă nu rulează deja), cu YUKITUBE_OPEN=<lansatorul>
+ └─ pornește Firefox pe profilul YukiTube
+
+telecomanda (remote/app, Python + PySide6) ── 127.0.0.1:8975 ──  YukiTube Bridge (userscript în Violentmonkey)
+   GET  /nt/ping            lansatorul vede dacă telecomanda rulează
+   GET  /yukitube.user.js   Violentmonkey instalează (și actualizează) puntea de aici
+                            (/neontube.user.js rămâne pentru punțile instalate înainte de redenumire)
+   POST /nt/up              puntea trimite starea și primește comenzi (GM_xmlhttpRequest)
+```
+
+Puntea își trimite versiunea (`bridge`) la fiecare mesaj; telecomanda nu dă comenzi punților fără versiune (cele rămase de la NeonTube și primele YukiTube), care controlau YouTube într-un fel care nu merge în Firefox-ul YukiTube.
+
+De ce userscript și nu extensia din `remote/browser/extension`: Firefox-ul obișnuit refuză extensiile nesemnate, iar puntea trebuie să ruleze în Firefox-ul lui YukiTube. Violentmonkey e semnat pe AMO, așa că totul merge pe un Firefox normal, fără setări de dezvoltator. La prima pornire, telecomanda deschide `http://127.0.0.1:8975/yukitube.user.js`; Violentmonkey prinde link-ul și cere un singur click pe „Install”. Un marcaj în profil (`.yukitube-bridge-offered`) face ca asta să se întâmple o singură dată; din meniul telecomenzii (⋮ → „Conectează YukiTube”) se poate repeta oricând.
+
+În Firefox, Violentmonkey rulează puntea izolată de pagină, iar YouTube ignoră `video.play()`/`pause()` și click-urile simulate. De aceea puntea folosește API-ul player-ului YouTube prin `unsafeWindow`, deschide videoclipurile prin navigarea internă YouTube (`yt-navigate`, fără reîncărcare) și își păstrează identificatorul tab-ului în `sessionStorage`. YouTube NonStop amână orice pauză care nu urmează unui click sau unei taste în pagină, așa că o pauză venită de la telecomandă e terminată cu pauza originală pe care NonStop o păstrează (`yns_pause`). `user.js` permite redarea automată, ca un videoclip deschis din telecomandă să pornească singur.
+
+Link-urile pe care le deschide telecomanda (rezultatele căutării, „Deschide YouTube”) trec prin lansator, deci ajung în fereastra YukiTube, nu în browserul implicit.
+
+Extensia `remote/browser/extension` (MV3) a rămas pentru cine vrea să controleze cu telecomanda un Chrome/Edge/Brave obișnuit.
+
+### Arch Linux
 
 ```sh
 bin/install
 ```
 
-Construiește pachetul `yukitube` și îl instalează cu `makepkg -fsi`. Aplicația apare apoi în launcher (`Super + Space`). Din terminal:
+Construiește pachetul `yukitube` și îl instalează cu `makepkg -fsi` (instalează și `pyside6`). Aplicația apare apoi în launcher (`Super + Space`). Din terminal:
 
 ```sh
-yukitube                                   # YouTube
+yukitube                                   # YouTube + telecomanda
 yukitube https://youtu.be/dQw4w9WgXcQ      # un link
 yukitube muzică de studiu                  # o căutare
+yukitube --remote                          # doar telecomanda
+YUKITUBE_REMOTE=0 yukitube                 # fără telecomandă
 ```
 
-Linia de sub bara de adrese ia culoarea accent a temei curente, la fiecare pornire.
+Fereastra (`share/userChrome.css`) și YouTube-ul din ea (`share/userContent.css`) poartă culorile telecomenzii: mov închis, roz și cyan neon. Profilul stă în `~/.local/share/yukitube/profile`, jurnalul telecomenzii în `~/.local/state/yukitube/remote.log`.
 
-Profilul stă în `~/.local/share/yukitube/profile`.
+Din checkout, fără instalare: `bin/yukitube` (telecomanda pornește din `remote/app` cu `python3`, care are nevoie de PySide6).
 
-## Windows 10 / 11
-
-Ai nevoie de Firefox (`winget install Mozilla.Firefox`). Apoi, din folderul proiectului:
-
-- dublu-click pe `windows\install.cmd`, sau
-- `powershell -ExecutionPolicy Bypass -File windows\install.ps1 -Desktop` (cu `-Desktop` pune și o scurtătură pe desktop).
-
-YukiTube apare în meniul Start. Profilul stă în `%LOCALAPPDATA%\yukitube\profile`. Dezinstalare: `windows\uninstall.ps1` (adaugă `-RemoveData` ca să ștergi și profilul).
-
-## Scurtături
-
-Sunt cele din Firefox și YouTube:
+### Scurtături
 
 | Tastă | Ce face |
 | --- | --- |
 | `Alt+←` / `Alt+→` | Înapoi / înainte |
 | `Ctrl+L` | Bara de adrese: lipește un link sau caută |
 | `Ctrl+R` / `F5` | Reîncarcă |
+| `Ctrl+W` | Închide pagina curentă |
 | `F11` | Ecran complet |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Zoom |
 | `Ctrl+Q` | Ieșire (Linux) |
 | `Space`, `K`, `J`, `L`, `F`, `M` | Playerul YouTube: pauză, înapoi/înainte 10 s, ecran complet, sunet |
 | `?` | Toate scurtăturile YouTube |
 
-Butonul uBlock Origin din dreapta barei de adrese deschide panoul lui.
+Scurtăturile telecomenzii sunt în README-urile din arhive (`dist-docs/`).
 
-## Cum funcționează
+### Structura
 
+- `bin/yukitube`: lansatorul pentru Linux. `portable/launcher/`: `YukiTube.exe` pentru Windows (Go), aceeași logică.
 - `share/addons.tsv`: add-on-urile, cu link-ul și SHA-256 pentru fiecare.
 - `share/user.js`: setările profilului (pagina de start, fără taburi, temă întunecată, add-on-urile activate fără întrebări). Se rescrie la fiecare pornire; restul setărilor le poți schimba liber.
-- `share/userChrome.css`: ascunde bara de taburi și colorează bara de adrese.
-- `bin/yukitube`: launcherul pentru Linux. `windows/install.ps1`: același lucru pentru Windows, plus scurtătura din Start.
+- `share/userChrome.css`: ascunde bara de taburi și dă ferestrei culorile retrowave. `share/userContent.css`: aceleași culori pe YouTube (doar variabilele de culoare ale YouTube și câteva accente, nu layout-ul).
+- `remote/tools/make_icons.py`: generează toate iconițele din logo-ul desenat în `remote/app/logo.py` (PNG/ICO pentru telecomandă și Windows, SVG pentru Linux).
+- `remote/app/`: telecomanda (`yukitube_remote.py` interfața, `dock.py` lipirea de fereastra YouTube prin Hyprland IPC / user32, `logo.py` logo-ul, `wsserver.py` serverul local, `ytsearch.py` căutarea fără cheie API).
+- `remote/browser/`: puntea (`agent-core.js` rulează în tab-ul YouTube; `userscript-*.js` o împachetează ca userscript; `extension/` ca extensie MV3).
+- `windows/`: iconița și `shortcuts.ps1` (scurtăturile din meniul Start pentru varianta portabilă).
+- `dist-docs/`: README-urile și instrucțiunile de instalare din arhive.
 
-Ca să actualizezi versiunile fixate ale add-on-urilor, schimbă link-ul și hash-ul în `share/addons.tsv` și în `pkgbuild/PKGBUILD` (API-ul AMO le dă: `https://addons.mozilla.org/api/v5/addons/addon/ublock-origin/`).
+Ca să actualizezi versiunile fixate ale add-on-urilor, schimbă link-ul și hash-ul în `share/addons.tsv` și în `pkgbuild/PKGBUILD` (API-ul AMO le dă: `https://addons.mozilla.org/api/v5/addons/addon/violentmonkey/`).
 
-## Arhive de distribuție
+### Arhive de distribuție
 
 ```sh
 bin/dist
 ```
 
-Creează în `dist/` două arhive separate, fiecare cu add-on-urile incluse (instalarea nu descarcă nimic), un README și instrucțiuni de instalare:
+Creează în `dist/` câte o arhivă pentru fiecare sistem, plus `yukitube-<versiune>-SHA256SUMS`:
 
-- `yukitube-<versiune>-linux.tar.gz`: pachetul Arch, `install.sh` pentru orice distribuție (fără sudo), `README.md`, `INSTALARE.md`
-- `yukitube-<versiune>-windows.zip`: `Instaleaza.cmd` și celelalte fișiere pe care dai dublu-click, `README.txt`, `INSTALARE.txt`
+- `yukitube-<versiune>-linux-x86_64.tar.gz`: lansatorul, telecomanda compilată cu PyInstaller, pachetul Arch, `install.sh` pentru orice distribuție (fără sudo), `README.md`, `INSTALARE.md`.
+- `yukitube-<versiune>-windows-x64.zip`: varianta portabilă, folderul `YukiTube\` cu `YukiTube.exe`, un Firefox pentru Windows în `App\Firefox`, telecomanda în `App\Remote` (Python embeddable + PySide6), extensiile, `Creeaza-scurtaturi.cmd`, `README.txt`, `INSTALARE.txt`. Nu instalează nimic; profilul stă în `Data\`, lângă exe.
 
-Textele din arhive sunt în `dist-docs/`.
-
-## Windows portabil
-
-```sh
-bin/dist-portable
-```
-
-Creează `dist/yukitube-<versiune>-windows-portable.zip`: `YukiTube.exe` (launcherul din `portable/launcher/`, scris în Go), un Firefox pentru Windows în `App\Firefox` (versiune fixată și verificată cu SHA-256 în script) și extensiile. Profilul stă în `Data\`, lângă exe, deci nu se instalează nimic, nici măcar Firefox. Textele din arhivă sunt în `dist-docs/windows-portable/`. E nevoie de Go (`mise install go@1.27.4`).
+Versiunile fixate (Firefox, Python, PySide6, Go) și hash-urile lor sunt la începutul lui `bin/dist`. E nevoie de `uv`, `mise` (pentru Go), `makepkg`, `zip`, `bsdtar`, `curl` și `binutils`. Descărcările stau în `~/.cache/yukitube`.

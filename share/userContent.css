@@ -1,0 +1,119 @@
+/* Written by YukiTube at every launch; edits here are overwritten.
+ * YouTube in the remote's retrowave colors. Only YouTube's own color
+ * variables and a few accents change, so the layout stays YouTube's. */
+
+@-moz-document domain("youtube.com") {
+  html[dark], html [dark] {
+    --yt-spec-base-background: #0e0220 !important;
+    --yt-spec-raised-background: #170430 !important;
+    --yt-spec-menu-background: #1c0638 !important;
+    --yt-spec-general-background-a: #0e0220 !important;
+    --yt-spec-general-background-b: #12022b !important;
+    --yt-spec-general-background-c: #170430 !important;
+    --yt-spec-brand-background-solid: #0e0220 !important;
+    --yt-spec-brand-background-primary: rgba(14, 2, 32, .98) !important;
+    --yt-spec-brand-background-secondary: rgba(23, 4, 48, .95) !important;
+    --yt-spec-additive-background: rgba(255, 42, 109, .10) !important;
+    --yt-spec-badge-chip-background: rgba(255, 42, 109, .12) !important;
+    --yt-spec-10-percent-layer: rgba(255, 42, 109, .20) !important;
+    --yt-spec-outline: rgba(255, 42, 109, .25) !important;
+    --yt-spec-text-primary: #f6ecff !important;
+    --yt-spec-text-secondary: #bfa3e0 !important;
+    --yt-spec-call-to-action: #05d9e8 !important;
+    --yt-spec-themed-blue: #05d9e8 !important;
+    --yt-spec-static-brand-red: #ff2a6d !important;
+    --yt-spec-red-indicator: #ff2a6d !important;
+    /* YouTube's newer color tokens. */
+    --yt-sys-color-baseline--base-background: #0e0220 !important;
+    --yt-sys-color-baseline--raised-background: #170430 !important;
+    --yt-sys-color-baseline--menu-background: #1c0638 !important;
+    --yt-sys-color-baseline--surface-container: #150328 !important;
+    --yt-sys-color-baseline--overlay-solid-background-inverse: #0e0220 !important;
+    --yt-sys-color-baseline--solid-background-inverse: #0e0220 !important;
+    --yt-sys-color-baseline--scrim-background-gradient-5: #0e0220 !important;
+    --yt-sys-color-baseline--mono-filled-hover-inverse: #2a0848 !important;
+    --yt-sys-color-baseline--outline-opaque: #4a1650 !important;
+    --yt-sys-color-baseline--text-primary: #f6ecff !important;
+    --yt-sys-color-baseline--text-secondary: #bfa3e0 !important;
+    --yt-sys-color-baseline--call-to-action: #05d9e8 !important;
+    --yt-deprecated-general-background-a: #0e0220 !important;
+    --yt-deprecated-general-background-b: #12022b !important;
+    --yt-deprecated-general-background-c: #170430 !important;
+    --dark-theme-background-color: #170430 !important;
+    --paper-dialog-background-color: #170430 !important;
+    --paper-listbox-background-color: #170430 !important;
+    --paper-menu-background-color: #170430 !important;
+    scrollbar-color: #ff2a6d #0e0220;
+  }
+
+  /* YouTube paints its main surfaces from generated variables whose names
+   * change between releases, so the surfaces are colored directly. */
+  html[dark],
+  html[dark] ytd-app,
+  html[dark] #background.ytd-masthead,
+  html[dark] ytd-masthead,
+  html[dark] #frosted-glass,
+  html[dark] tp-yt-app-drawer #contentContainer,
+  html[dark] ytd-guide-renderer,
+  html[dark] ytd-mini-guide-renderer,
+  html[dark] ytd-mini-guide-entry-renderer {
+    background: #0e0220 !important;
+  }
+  html[dark] ytd-app {
+    background: linear-gradient(180deg, #0e0220 0, #12022b 60vh, #0e0220 100%) fixed !important;
+  }
+  html[dark] #description.ytd-watch-metadata,
+  html[dark] ytd-comments-entry-point-header-renderer,
+  html[dark] ytd-engagement-panel-section-list-renderer {
+    background: #170430 !important;
+  }
+  html[dark] #description.ytd-watch-metadata {
+    border: 1px solid rgba(255, 42, 109, .25) !important;
+  }
+
+  ::selection {
+    background: #ff2a6d;
+    color: #fff;
+  }
+
+  /* The player's progress bar and scrubber, in neon. */
+  .ytp-play-progress,
+  .ytp-swatch-background-color {
+    background: linear-gradient(90deg, #ff2a6d, #d300c5, #05d9e8) !important;
+  }
+  .ytp-scrubber-button {
+    background: #05d9e8 !important;
+    box-shadow: 0 0 8px #05d9e8 !important;
+  }
+  ytd-thumbnail-overlay-resume-playback-renderer #progress,
+  .ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment {
+    background: linear-gradient(90deg, #ff2a6d, #05d9e8) !important;
+  }
+
+  /* The search box and the selected chip get a neon edge. */
+  ytd-searchbox #container.ytd-searchbox,
+  .ytSearchboxComponentInputBox {
+    border-color: rgba(255, 42, 109, .45) !important;
+  }
+  ytd-searchbox[has-focus] #container.ytd-searchbox,
+  .ytSearchboxComponentInputBoxHasFocus {
+    border-color: #05d9e8 !important;
+    box-shadow: 0 0 8px rgba(5, 217, 232, .5) !important;
+  }
+  yt-chip-cloud-chip-renderer[selected] #chip-container,
+  yt-chip-cloud-chip-renderer[selected] .ytChipShapeChip {
+    background: linear-gradient(90deg, #ff2a6d, #d300c5) !important;
+    color: #fff !important;
+  }
+}
+
+@-moz-document domain("music.youtube.com") {
+  html {
+    --ytmusic-general-background-a: #0e0220 !important;
+    --ytmusic-general-background-b: #12022b !important;
+    --ytmusic-general-background-c: #170430 !important;
+    --ytmusic-player-bar-background: #170430 !important;
+    --paper-slider-active-color: #ff2a6d !important;
+    --paper-slider-knob-color: #05d9e8 !important;
+  }
+}

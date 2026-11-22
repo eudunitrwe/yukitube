@@ -1,18 +1,20 @@
 pkgname=yukitube
-pkgver=0.1.0
+pkgver=0.3.1
 pkgrel=1
-pkgdesc='YouTube in its own Firefox window, with uBlock Origin and YouTube NonStop'
+pkgdesc='YouTube in its own retrowave Firefox window, without ads, with a remote'
 arch=('any')
 license=('MIT')
-depends=('firefox' 'bash' 'curl' 'jq' 'coreutils' 'sed')
+depends=('firefox' 'bash' 'curl' 'jq' 'coreutils' 'sed' 'util-linux' 'python' 'pyside6' 'qt6-svg')
 optdepends=('libnotify: errors shown as desktop notifications')
 # The add-ons are the signed builds from addons.mozilla.org, pinned and
 # checked here; Firefox updates them on its own afterwards.
 source=("ublock-origin-1.77.0.xpi::https://addons.mozilla.org/firefox/downloads/file/5290541/ublock_origin-1.77.0.xpi"
-        "youtube-nonstop-0.9.2.xpi::https://addons.mozilla.org/firefox/downloads/file/4187690/youtube_nonstop-0.9.2.xpi")
+        "youtube-nonstop-0.9.2.xpi::https://addons.mozilla.org/firefox/downloads/file/4187690/youtube_nonstop-0.9.2.xpi"
+        "violentmonkey-2.50.0.xpi::https://addons.mozilla.org/firefox/downloads/file/5170937/violentmonkey-2.50.0.xpi")
 noextract=("${source[@]%%::*}")
 sha256sums=('894ea48dedd26a637ab98ba627ae70b7ed94798eabfd4b089f5e5e73524a24eb'
-            '7659d180f76ea908ea81b84ed9bdd188624eaaa62b88accbe6d8ad4e8caeff38')
+            '7659d180f76ea908ea81b84ed9bdd188624eaaa62b88accbe6d8ad4e8caeff38'
+            '5e074465c7fdd31934e5b4664e3d2eac54269df575a0c0db52c843fe9afd81df')
 
 package() {
   cd "$startdir/.."
@@ -20,8 +22,18 @@ package() {
   install -Dm644 share/addons.tsv "$pkgdir/usr/share/yukitube/addons.tsv"
   install -Dm644 share/user.js "$pkgdir/usr/share/yukitube/user.js"
   install -Dm644 share/userChrome.css "$pkgdir/usr/share/yukitube/userChrome.css"
+  install -Dm644 share/userContent.css "$pkgdir/usr/share/yukitube/userContent.css"
   install -Dm644 "$srcdir/ublock-origin-1.77.0.xpi" "$pkgdir/usr/share/yukitube/addons/uBlock0@raymondhill.net.xpi"
   install -Dm644 "$srcdir/youtube-nonstop-0.9.2.xpi" "$pkgdir/usr/share/yukitube/addons/{0d7cafdd-501c-49ca-8ebb-e3341caaa55e}.xpi"
+  install -Dm644 "$srcdir/violentmonkey-2.50.0.xpi" "$pkgdir/usr/share/yukitube/addons/{aecec67f-0d10-4fa7-b7c7-609a2db280cf}.xpi"
+
+  # The remote runs from its sources on the system's PySide6.
+  local remote="$pkgdir/usr/share/yukitube/remote"
+  install -Dm644 -t "$remote" remote/app/*.py
+  cp -r remote/app/assets "$remote/assets"
+  cat remote/browser/userscript-header.js remote/browser/agent-core.js remote/browser/userscript-glue.js \
+    >"$remote/assets/yukitube.user.js"
+  chmod -R u=rwX,go=rX "$remote"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 "$startdir/yukitube.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/yukitube.svg"
   install -Dm644 "$startdir/yukitube.desktop" "$pkgdir/usr/share/applications/yukitube.desktop"

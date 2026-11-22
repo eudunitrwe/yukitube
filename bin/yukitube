@@ -1,15 +1,19 @@
 #!/bin/bash
-# yukitube — YouTube in its own Firefox window, with uBlock Origin and YouTube NonStop.
+# yukitube — YouTube in its own Firefox window, with uBlock Origin and YouTube
+# NonStop, and the YukiTube remote beside it.
 #
-#   yukitube                 open YouTube
+#   yukitube                 open YouTube (and the remote)
 #   yukitube <link>          open a YouTube link
 #   yukitube <words...>      search YouTube
+#   yukitube --remote        open only the remote
 #
 # The window runs on a Firefox profile of its own, so its sign-in, history,
-# and add-ons never mix with the user's main Firefox.
+# and add-ons never mix with the user's main Firefox. YUKITUBE_REMOTE=0 skips
+# the remote.
 set -euo pipefail
 
-here=$(dirname "$(readlink -f "$0")")
+self=$(readlink -f "$0")
+here=$(dirname "$self")
 if [[ -n ${YUKITUBE_SHARE:-} ]]; then
   share=$YUKITUBE_SHARE
 elif [[ -d $here/../share/yukitube ]]; then
@@ -18,13 +22,43 @@ else
   share=$here/../share
 fi
 profile=${YUKITUBE_PROFILE:-${XDG_DATA_HOME:-$HOME/.local/share}/yukitube/profile}
-theme=${YUKITUBE_THEME:-$HOME/.local/state/theme/current}
 
 fail() {
   echo "yukitube: $*" >&2
   command -v notify-send >/dev/null && notify-send -a YukiTube "YukiTube" "$*" || true
   exit 1
 }
+
+# The YukiTube remote: a built binary (release archive), the Python sources
+# (Arch package), or the checkout.
+remote=()
+if [[ -x $share/remote/yukitube-remote ]]; then
+  remote=("$share/remote/yukitube-remote")
+elif [[ -f $share/remote/yukitube_remote.py ]]; then
+  remote=(python3 "$share/remote/yukitube_remote.py")
+elif [[ -f $here/../remote/app/yukitube_remote.py ]]; then
+  remote=(python3 "$here/../remote/app/yukitube_remote.py")
+fi
+
+remote_running() {
+  curl -fs --max-time 1 http://127.0.0.1:8975/nt/ping 2>/dev/null | grep -q '"yukitube-remote"'
+}
+
+# Started detached, so closing Firefox leaves it be. YUKITUBE_OPEN makes the
+# links it opens land in this window.
+start_remote() {
+  ((${#remote[@]})) || return 1
+  remote_running && return 1
+  local log=${XDG_STATE_HOME:-$HOME/.local/state}/yukitube/remote.log
+  mkdir -p "$(dirname "$log")"
+  YUKITUBE_OPEN=$self setsid -f "${remote[@]}" --quiet-if-running "$@" >"$log" 2>&1 </dev/null
+}
+
+if [[ ${1:-} == --remote ]]; then
+  ((${#remote[@]})) || fail "The YukiTube remote is not installed."
+  start_remote || true
+  exit 0
+fi
 
 command -v firefox >/dev/null || fail "Firefox is not installed. Install it with: sudo pacman -S firefox"
 
@@ -48,15 +82,24 @@ done <"$share/addons.tsv"
 
 cp "$share/user.js" "$profile/user.js"
 
-# Follow the desktop theme's accent; otherwise the default yellow.
-accent=$(sed -nE 's/^[[:space:]]*accent[[:space:]]*=[[:space:]]*["'"'"'](#[0-9a-fA-F]{6})["'"'"'].*/\1/p' "$theme/colors.toml" 2>/dev/null | head -n1 || true)
-sed "s/@ACCENT@/${accent:-#FFD60A}/" "$share/userChrome.css" >"$profile/chrome/userChrome.css"
+# The remote talks to YouTube through a userscript in Violentmonkey. Once,
+# on the first launch, the remote offers it and Violentmonkey asks to
+# install it; the marker records that.
+if [[ ${YUKITUBE_REMOTE:-1} != 0 ]]; then
+  start_remote --bridge-marker "$profile/.yukitube-bridge-offered" || true
+fi
 
-# A YouTube link opens as is; anything else is a search.
+# The retrowave look: the window (userChrome) and YouTube itself (userContent).
+cp "$share/userChrome.css" "$share/userContent.css" "$profile/chrome/"
+
+# A YouTube link, or the remote's own address (the bridge userscript it
+# offers), opens as is; anything else is a search.
 url=
 if (($#)); then
   input="$*"
-  if [[ $input =~ ^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$) ]]; then
+  if [[ $input =~ ^http://127\.0\.0\.1:8975/ ]]; then
+    url=$input
+  elif [[ $input =~ ^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$) ]]; then
     [[ $input == http* ]] && url=$input || url="https://$input"
   else
     url="https://www.youtube.com/results?search_query=$(jq -rn --arg q "$input" '$q|@uri')"

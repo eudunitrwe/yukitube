@@ -5,7 +5,10 @@ import (
 	"unsafe"
 )
 
-const firefoxName = "firefox.exe"
+const (
+	firefoxName = "firefox.exe"
+	pythonName  = "pythonw.exe"
+)
 
 // The launcher is built without a console, so errors go to a message box.
 func showError(message string) {

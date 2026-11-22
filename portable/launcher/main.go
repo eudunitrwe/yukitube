@@ -1,7 +1,12 @@
 // Command YukiTube is the portable Windows launcher. It keeps a Firefox
 // profile in Data\ beside itself, puts the bundled add-ons and settings in it,
-// and starts the Firefox in App\Firefox on it. Nothing is installed, and
-// nothing outside the folder is needed.
+// starts the YukiTube remote from App\Remote, and starts the Firefox in
+// App\Firefox on the profile. Nothing is installed, and nothing outside the
+// folder is needed.
+//
+//	YukiTube.exe                 open YouTube (and the remote)
+//	YukiTube.exe <link|words>    open a link or search YouTube
+//	YukiTube.exe --remote        open only the remote
 package main
 
 import (
@@ -10,12 +15,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -24,7 +31,7 @@ func main() {
 		exe, err = filepath.EvalSymlinks(exe)
 	}
 	if err == nil {
-		err = run(filepath.Dir(exe), os.Args[1:])
+		err = run(exe, os.Args[1:])
 	}
 	if err != nil {
 		showError(err.Error())
@@ -32,8 +39,14 @@ func main() {
 	}
 }
 
-func run(root string, args []string) error {
+func run(exe string, args []string) error {
+	root := filepath.Dir(exe)
 	app := filepath.Join(root, "App")
+	remote := filepath.Join(app, "Remote")
+	if len(args) == 1 && args[0] == "--remote" {
+		return startRemote(exe, remote)
+	}
+
 	firefox := filepath.Join(app, "Firefox", firefoxName)
 	if _, err := os.Stat(firefox); err != nil {
 		return fmt.Errorf("Firefox lipsește din %s.\n\nDezarhivează din nou toată arhiva YukiTube, apoi pornește YukiTube.exe din folderul dezarhivat.", filepath.Dir(firefox))
@@ -52,13 +65,20 @@ func run(root string, args []string) error {
 	if err := copyFile(filepath.Join(share, "user.js"), filepath.Join(profile, "user.js")); err != nil {
 		return fmt.Errorf("Setările nu au putut fi copiate: %v", err)
 	}
-	css, err := os.ReadFile(filepath.Join(share, "userChrome.css"))
-	if err != nil {
-		return fmt.Errorf("Lipsește %s: %v", filepath.Join(share, "userChrome.css"), err)
+	// The retrowave look: the window (userChrome) and YouTube itself
+	// (userContent).
+	for _, name := range []string{"userChrome.css", "userContent.css"} {
+		if err := copyFile(filepath.Join(share, name), filepath.Join(profile, "chrome", name)); err != nil {
+			return fmt.Errorf("Lipsește %s: %v", filepath.Join(share, name), err)
+		}
 	}
-	css = []byte(strings.ReplaceAll(string(css), "@ACCENT@", "#FFD60A"))
-	if err := os.WriteFile(filepath.Join(profile, "chrome", "userChrome.css"), css, 0o644); err != nil {
-		return err
+
+	// The remote talks to YouTube through a userscript in Violentmonkey.
+	// Once, on the first launch, the remote offers it and Violentmonkey asks
+	// to install it; the marker records that. A missing remote is not a
+	// reason to keep YouTube from opening.
+	if os.Getenv("YUKITUBE_REMOTE") != "0" {
+		startRemote(exe, remote, "--bridge-marker", filepath.Join(profile, ".yukitube-bridge-offered"))
 	}
 
 	// A second launch reaches the running window through Firefox's own
@@ -72,6 +92,39 @@ func run(root string, args []string) error {
 	cmd.Dir = filepath.Dir(firefox)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("Firefox nu a pornit: %v", err)
+	}
+	return cmd.Process.Release()
+}
+
+func remoteRunning() bool {
+	client := http.Client{Timeout: time.Second}
+	resp, err := client.Get("http://127.0.0.1:8975/nt/ping")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	return strings.Contains(string(body), `"yukitube-remote"`)
+}
+
+// Starts the remote detached, unless it already runs. YUKITUBE_OPEN makes
+// the links it opens come back here, into the YukiTube window.
+func startRemote(exe, remote string, extra ...string) error {
+	python := filepath.Join(remote, "runtime", pythonName)
+	if _, err := os.Stat(python); err != nil {
+		return fmt.Errorf("Telecomanda YukiTube lipsește din %s.\n\nDezarhivează din nou toată arhiva YukiTube.", remote)
+	}
+	if remoteRunning() {
+		return nil
+	}
+	argv := append([]string{filepath.Join(remote, "app", "yukitube_remote.py"), "--quiet-if-running"}, extra...)
+	cmd := exec.Command(python, argv...)
+	cmd.Dir = remote
+	// YUKITUBE_FIREFOX lets the remote find this Firefox's window to dock to.
+	firefox := filepath.Join(filepath.Dir(exe), "App", "Firefox", firefoxName)
+	cmd.Env = append(os.Environ(), "YUKITUBE_OPEN="+exe, "YUKITUBE_FIREFOX="+firefox)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("Telecomanda YukiTube nu a pornit: %v", err)
 	}
 	return cmd.Process.Release()
 }
@@ -115,12 +168,15 @@ func installAddons(share, extensions string) error {
 
 var youtubeLink = regexp.MustCompile(`(?i)^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$)`)
 
-// A YouTube link opens as is; anything else is a search.
+// A YouTube link, or the remote's own address (the bridge userscript it
+// offers), opens as is; anything else is a search.
 func resolve(input string) string {
 	input = strings.TrimSpace(input)
 	switch {
 	case input == "":
 		return ""
+	case strings.HasPrefix(input, "http://127.0.0.1:8975/"):
+		return input
 	case youtubeLink.MatchString(input):
 		if strings.HasPrefix(strings.ToLower(input), "http") {
 			return input

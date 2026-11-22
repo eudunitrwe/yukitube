@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "YukiTube Bridge",
+  "short_name": "YukiTube",
+  "version": "1.3.0",
+  "description": "Connects YouTube tabs to the YukiTube remote (local only, 127.0.0.1).",
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "permissions": ["alarms"],
+  "host_permissions": ["https://www.youtube.com/*", "https://music.youtube.com/*", "https://m.youtube.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*", "https://music.youtube.com/*", "https://m.youtube.com/*"],
+      "js": ["agent-core.js", "agent-main.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.youtube.com/*", "https://music.youtube.com/*", "https://m.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "neontube-bridge@neontube.local",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  }
+}

@@ -2,11 +2,17 @@
 Type=Application
 Name=YukiTube
 Name[ro]=YukiTube
-Comment=YouTube in its own window, without ads
-Comment[ro]=YouTube în fereastra lui, fără reclame
+Comment=YouTube in its own retrowave window, without ads, with a remote
+Comment[ro]=YouTube în fereastra lui retrowave, fără reclame, cu telecomandă
 Exec=yukitube %u
 Icon=yukitube
 Terminal=false
 Categories=AudioVideo;Video;
-Keywords=youtube;video;music;
+Keywords=youtube;video;music;remote;telecomanda;neontube;
 StartupWMClass=yukitube
+Actions=remote;
+
+[Desktop Action remote]
+Name=Remote only
+Name[ro]=Doar telecomanda
+Exec=yukitube --remote
