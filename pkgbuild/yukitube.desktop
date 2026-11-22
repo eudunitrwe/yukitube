@@ -7,6 +7,6 @@ Comment[ro]=YouTube în fereastra lui, fără reclame
 Exec=yukitube %u
 Icon=yukitube
 Terminal=false
-Categories=AudioVideo;Video;Network;
+Categories=AudioVideo;Video;
 Keywords=youtube;video;music;
 StartupWMClass=yukitube
