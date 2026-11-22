@@ -9,7 +9,7 @@
 #                                            Python + Qt)
 #
 # Each carries the verified add-ons, so installing needs no download.
-# Needs: uv, mise (for Go), makepkg, zip, bsdtar, curl, binutils.
+# Needs: uv, mise (for Go), bwrap, git, zip, bsdtar, curl, binutils.
 set -euo pipefail
 
 # Firefox for Windows, 64-bit, Romanian. To update, take the line for
@@ -95,8 +95,8 @@ glibc=$(find "$int" "$rbin/yukitube-remote" -type f \( -name '*.so*' -o -name yu
 echo "    the remote needs $glibc or newer"
 
 echo "==> linux: Arch package"
-# --nodeps: the dependencies are for the machine that installs it.
-(cd "$root/pkgbuild" && makepkg -f --nodeps >/dev/null)
+# In a clean Arch container, so the package does not describe this machine.
+"$root/bin/archpkg" >/dev/null
 
 linux=$work/yukitube-$version-linux-x86_64
 mkdir -p "$linux/bin"

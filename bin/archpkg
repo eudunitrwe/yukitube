@@ -1,0 +1,67 @@
+#!/bin/bash
+# Builds the Arch package in a clean Arch Linux container, so the package's
+# metadata (.BUILDINFO) lists a plain Arch system and not the build machine.
+#
+# The container is the official Arch bootstrap image, run without root
+# through bubblewrap (user namespaces). It is kept in ~/.cache/yukitube/archroot
+# and updated on every build.
+#
+#   bin/archpkg            builds pkgbuild/yukitube-<version>-1-any.pkg.tar.zst
+#
+# Needs: bwrap, curl, bsdtar, git.
+set -euo pipefail
+
+MIRROR=https://geo.mirror.pkgbuild.com
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/yukitube
+chroot=$cache/archroot
+mkdir -p "$cache"
+
+# run <uid> <command> [binds...]: a command inside the container
+run() {
+  local uid=$1 cmd=$2
+  shift 2
+  bwrap --unshare-user --uid "$uid" --gid "$uid" --unshare-pid --unshare-ipc --unshare-uts \
+    --hostname archbuild --die-with-parent \
+    --bind "$chroot" / --dev /dev --proc /proc --tmpfs /tmp \
+    --ro-bind /etc/resolv.conf /etc/resolv.conf "$@" \
+    --clearenv --setenv PATH /usr/bin --setenv LANG C.UTF-8 \
+    --setenv HOME "$([[ $uid == 0 ]] && echo /root || echo /build)" \
+    /usr/bin/bash -c "$cmd"
+}
+
+if [[ ! -x $chroot/usr/bin/fakeroot ]]; then
+  echo "==> arch container: setting up"
+  tarball=$cache/archlinux-bootstrap-x86_64.tar.zst
+  curl -fsSL --max-time 600 -o "$tarball" "$MIRROR/iso/latest/archlinux-bootstrap-x86_64.tar.zst"
+  (cd "$cache" && curl -fsSL "$MIRROR/iso/latest/sha256sums.txt" |
+    grep ' archlinux-bootstrap-x86_64.tar.zst$' | sha256sum --quiet -c -)
+  [[ -d $chroot ]] && chmod -R u+rwX "$chroot" && rm -rf "$chroot"
+  mkdir -p "$chroot"
+  bsdtar -xf "$tarball" -C "$chroot" --strip-components=1 2>/dev/null || true
+  chmod -R u+rwX "$chroot"
+  echo "Server = $MIRROR/\$repo/os/\$arch" >"$chroot/etc/pacman.d/mirrorlist"
+  # pacman's download sandbox needs real root; makepkg needs a non-root user.
+  sed -i '/^\[options\]/a DisableSandbox' "$chroot/etc/pacman.conf"
+  echo 'builder:x:1000:1000::/build:/usr/bin/bash' >>"$chroot/etc/passwd"
+  echo 'builder:x:1000:' >>"$chroot/etc/group"
+  run 0 'pacman-key --init && pacman-key --populate archlinux' >/dev/null 2>&1
+fi
+
+echo "==> arch container: updating"
+# Hooks that chown to other users fail without real root; they do not matter here.
+run 0 'pacman -Syu --noconfirm --needed base-devel' >/dev/null 2>&1 || true
+run 0 'pacman -Q base-devel debugedit fakeroot >/dev/null'
+
+echo "==> arch container: makepkg"
+src=$(mktemp -d)
+trap 'chmod -R u+rwX "$src"; rm -rf "$src"' EXIT
+# The committed sources plus the working tree's changes, nothing else.
+(cd "$root" && git ls-files -co --exclude-standard -z | xargs -0 cp --parents -t "$src" 2>/dev/null || true)
+mkdir -p "$cache/sources"
+run 1000 'cd /build/yukitube/pkgbuild && SRCDEST=/build/sources PKGDEST=/build/out makepkg -f --nodeps --noconfirm >/dev/null' \
+  --bind "$src" /build/yukitube --bind "$cache/sources" /build/sources --bind "$root/pkgbuild" /build/out
+
+version=$(sed -n 's/^pkgver=//p' "$root/pkgbuild/PKGBUILD")
+ls -l "$root/pkgbuild/yukitube-$version-1-any.pkg.tar.zst"
