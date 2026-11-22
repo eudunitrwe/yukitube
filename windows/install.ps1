@@ -52,6 +52,13 @@ foreach ($line in Get-Content (Join-Path $share 'addons.tsv')) {
     $target = Join-Path $profileDir "extensions\$guid.xpi"
     if (Test-Path -LiteralPath $target) { continue }
 
+    # A release archive ships verified copies; a checkout downloads them.
+    $bundled = Join-Path $share "addons\$guid.xpi"
+    if (Test-Path -LiteralPath $bundled) {
+        Copy-Item -LiteralPath $bundled -Destination $target
+        continue
+    }
+
     Write-Host "Downloading $name..."
     $tmp = "$target.download"
     Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $tmp

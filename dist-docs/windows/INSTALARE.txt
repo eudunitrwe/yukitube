@@ -1,0 +1,59 @@
+Instalare YukiTube pe Windows 10 / 11
+=====================================
+
+CE ITI TREBUIE
+
+Firefox. Daca nu il ai, instaleaza-l de pe https://www.mozilla.org/firefox/
+sau din Command Prompt:
+
+    winget install Mozilla.Firefox
+
+
+1. DEZARHIVEAZA
+
+Click dreapta pe yukitube-0.1.0-windows.zip > „Extract All...” (Extrage tot).
+Nu porni instalarea direct din fereastra arhivei: dezarhiveaza intai.
+
+
+2. INSTALEAZA
+
+In folderul dezarhivat, dublu-click pe:
+
+    Instaleaza.cmd
+
+Se deschide o fereastra neagra care spune „YukiTube is installed”.
+Apasa orice tasta ca sa o inchizi.
+
+Daca Windows afiseaza „Windows protected your PC” (SmartScreen), apasa
+„More info” (Mai multe informatii), apoi „Run anyway” (Executa oricum).
+
+Vrei si o scurtatura pe desktop? Foloseste in loc:
+
+    Instaleaza-cu-scurtatura-pe-desktop.cmd
+
+
+3. PORNESTE
+
+Deschide meniul Start si cauta „YukiTube”. La prima pornire, YukiTube isi
+creeaza profilul si instaleaza cele doua extensii din arhiva, fara sa
+descarce nimic.
+
+Dupa instalare poti sterge folderul dezarhivat.
+
+
+DEZINSTALARE
+
+Dublu-click pe Dezinstaleaza.cmd (din folderul dezarhivat). Asta sterge
+scurtaturile, dar pastreaza profilul (autentificare, istoric). Ca sa stergi
+tot, inclusiv profilul, foloseste Dezinstaleaza-tot.cmd.
+
+
+DACA CEVA NU MERGE
+
+  - „Firefox is not installed”: instaleaza Firefox (vezi sus) si ruleaza
+    din nou Instaleaza.cmd.
+  - „running scripts is disabled”: porneste prin fisierele .cmd, nu prin
+    .ps1; ele ocolesc restrictia doar pentru acest script.
+  - Extensiile nu apar: inchide YukiTube, sterge folderul
+    %LOCALAPPDATA%\yukitube\profile\extensions si ruleaza din nou
+    Instaleaza.cmd.

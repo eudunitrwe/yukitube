@@ -1,0 +1,66 @@
+#!/bin/bash
+# Builds the two release archives in dist/:
+#
+#   yukitube-<version>-linux.tar.gz    launcher, Arch package, per-user installer
+#   yukitube-<version>-windows.zip     PowerShell installer and .cmd wrappers
+#
+# Each carries the verified add-ons, so installing needs no download.
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+version=$(sed -n 's/^pkgver=//p' "$root/pkgbuild/PKGBUILD")
+dist=$root/dist
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# Download each add-on once and check it against addons.tsv.
+mkdir -p "$work/addons"
+while IFS=$'\t' read -r name guid url sha256; do
+  [[ -z $name || $name == \#* ]] && continue
+  curl -fsSL --max-time 120 -o "$work/addons/$guid.xpi" "$url"
+  echo "$sha256  $work/addons/$guid.xpi" | sha256sum --quiet -c -
+done <"$root/share/addons.tsv"
+
+stage_share() {
+  mkdir -p "$1"
+  cp "$root/share/addons.tsv" "$root/share/user.js" "$root/share/userChrome.css" "$1/"
+  cp -r "$work/addons" "$1/addons"
+}
+
+# Linux.
+(cd "$root/pkgbuild" && makepkg -f >/dev/null)
+linux=$work/yukitube-$version-linux
+mkdir -p "$linux/bin"
+cp "$root/bin/yukitube" "$linux/bin/"
+cp "$root/bin/install-user" "$linux/install.sh"
+stage_share "$linux/share"
+cp "$root/pkgbuild/yukitube.desktop" "$root/pkgbuild/yukitube.svg" "$root/LICENSE" "$linux/"
+cp "$root/pkgbuild/yukitube-$version-1-any.pkg.tar.zst" "$linux/"
+cp "$root/dist-docs/linux/README.md" "$root/dist-docs/linux/INSTALARE.md" "$linux/"
+
+# Windows: plain .cmd files to double-click, which start PowerShell with the
+# script policy relaxed for that one script. Text files get CRLF and a BOM
+# so Notepad shows them right.
+windows=$work/yukitube-$version-windows
+mkdir -p "$windows/windows"
+cp "$root/windows/install.ps1" "$root/windows/uninstall.ps1" "$root/windows/yukitube.ico" "$windows/windows/"
+stage_share "$windows/share"
+cmd() {
+  printf '@echo off\r\nrem %s\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%%~dp0windows\\%s" %s\r\npause\r\n' "$2" "$3" "$4" >"$windows/$1"
+}
+cmd Instaleaza.cmd "Installs YukiTube for this user." install.ps1 ""
+cmd Instaleaza-cu-scurtatura-pe-desktop.cmd "Installs YukiTube with a desktop shortcut." install.ps1 "-Desktop"
+cmd Dezinstaleaza.cmd "Removes YukiTube's shortcuts, keeping its profile." uninstall.ps1 ""
+cmd Dezinstaleaza-tot.cmd "Removes YukiTube and its profile." uninstall.ps1 "-RemoveData"
+for f in README.txt INSTALARE.txt; do
+  { printf '\xef\xbb\xbf'; sed 's/$/\r/' "$root/dist-docs/windows/$f"; } >"$windows/$f"
+done
+{ printf '\xef\xbb\xbf'; sed 's/$/\r/' "$root/LICENSE"; } >"$windows/LICENSE.txt"
+
+mkdir -p "$dist"
+rm -f "$dist/yukitube-$version-linux.tar.gz" "$dist/yukitube-$version-windows.zip"
+tar -czf "$dist/yukitube-$version-linux.tar.gz" -C "$work" "yukitube-$version-linux"
+(cd "$work" && zip -qr "$dist/yukitube-$version-windows.zip" "yukitube-$version-windows")
+
+echo "Built:"
+ls -lh "$dist"/yukitube-"$version"-*

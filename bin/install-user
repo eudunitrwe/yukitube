@@ -1,0 +1,43 @@
+#!/bin/bash
+# Installs YukiTube for the current user only, on any Linux, without sudo.
+#
+#   ./install.sh               install or update
+#   ./install.sh --uninstall   remove it (the profile stays)
+set -euo pipefail
+
+here=$(dirname "$(readlink -f "$0")")
+bin=$HOME/.local/bin
+data=${XDG_DATA_HOME:-$HOME/.local/share}
+
+if [[ ${1:-} == --uninstall ]]; then
+  rm -f "$bin/yukitube" "$data/applications/yukitube.desktop" "$data/icons/hicolor/scalable/apps/yukitube.svg"
+  rm -rf "$data/yukitube/share"
+  echo "YukiTube removed. Its profile is still in $data/yukitube/profile."
+  exit 0
+fi
+
+missing=()
+for tool in firefox curl jq sha256sum; do
+  command -v "$tool" >/dev/null || missing+=("$tool")
+done
+if ((${#missing[@]})); then
+  echo "Missing: ${missing[*]}. Install them first (Arch: sudo pacman -S ${missing[*]/sha256sum/coreutils})." >&2
+  exit 1
+fi
+
+install -Dm755 "$here/bin/yukitube" "$bin/yukitube"
+rm -rf "$data/yukitube/share"
+mkdir -p "$data/yukitube"
+cp -r "$here/share" "$data/yukitube/share"
+install -Dm644 "$here/yukitube.svg" "$data/icons/hicolor/scalable/apps/yukitube.svg"
+
+# The launcher looks for its files beside itself; point it at the per-user
+# copy, and give the menu entry a full path in case ~/.local/bin is not on PATH.
+sed -i "s|^set -euo pipefail$|set -euo pipefail\n: \"\${YUKITUBE_SHARE:=$data/yukitube/share}\"|" "$bin/yukitube"
+mkdir -p "$data/applications"
+sed "s|^Exec=yukitube|Exec=$bin/yukitube|" "$here/yukitube.desktop" >"$data/applications/yukitube.desktop.tmp"
+mv "$data/applications/yukitube.desktop.tmp" "$data/applications/yukitube.desktop"
+command -v update-desktop-database >/dev/null && update-desktop-database "$data/applications" 2>/dev/null || true
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q "$data/icons/hicolor" 2>/dev/null || true
+
+echo "YukiTube is installed. Open it from the app launcher, or run: $bin/yukitube"

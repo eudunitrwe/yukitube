@@ -49,7 +49,7 @@ done <"$share/addons.tsv"
 cp "$share/user.js" "$profile/user.js"
 
 # Follow the desktop theme's accent; otherwise the default yellow.
-accent=$(sed -nE 's/^[[:space:]]*accent[[:space:]]*=[[:space:]]*["'"'"'](#[0-9a-fA-F]{6})["'"'"'].*/\1/p' "$theme/colors.toml" 2>/dev/null | head -n1)
+accent=$(sed -nE 's/^[[:space:]]*accent[[:space:]]*=[[:space:]]*["'"'"'](#[0-9a-fA-F]{6})["'"'"'].*/\1/p' "$theme/colors.toml" 2>/dev/null | head -n1 || true)
 sed "s/@ACCENT@/${accent:-#FFD60A}/" "$share/userChrome.css" >"$profile/chrome/userChrome.css"
 
 # A YouTube link opens as is; anything else is a search.

@@ -61,3 +61,16 @@ Butonul uBlock Origin din dreapta barei de adrese deschide panoul lui.
 - `bin/yukitube`: launcherul pentru Linux. `windows/install.ps1`: același lucru pentru Windows, plus scurtătura din Start.
 
 Ca să actualizezi versiunile fixate ale add-on-urilor, schimbă link-ul și hash-ul în `share/addons.tsv` și în `pkgbuild/PKGBUILD` (API-ul AMO le dă: `https://addons.mozilla.org/api/v5/addons/addon/ublock-origin/`).
+
+## Arhive de distribuție
+
+```sh
+bin/dist
+```
+
+Creează în `dist/` două arhive separate, fiecare cu add-on-urile incluse (instalarea nu descarcă nimic), un README și instrucțiuni de instalare:
+
+- `yukitube-<versiune>-linux.tar.gz`: pachetul Arch, `install.sh` pentru orice distribuție (fără sudo), `README.md`, `INSTALARE.md`
+- `yukitube-<versiune>-windows.zip`: `Instaleaza.cmd` și celelalte fișiere pe care dai dublu-click, `README.txt`, `INSTALARE.txt`
+
+Textele din arhive sunt în `dist-docs/`.
