@@ -1,0 +1,10 @@
+{
+  "policies": {
+    "DisableDefaultBrowserAgent": true,
+    "DontCheckDefaultBrowser": true,
+    "DisableTelemetry": true,
+    "DisableProfileImport": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": ""
+  }
+}

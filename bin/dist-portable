@@ -1,0 +1,67 @@
+#!/bin/bash
+# Builds dist/yukitube-<version>-windows-portable.zip: YukiTube.exe, a Firefox
+# for Windows, and the add-ons, in one folder that runs without installing
+# anything, from anywhere the user can write (Documents, a USB stick).
+set -euo pipefail
+
+# Firefox for Windows, 64-bit, Romanian. To update, take the line for
+# win64/ro/ from https://ftp.mozilla.org/pub/firefox/releases/<version>/SHA256SUMS
+FIREFOX_VERSION=160.0.1
+FIREFOX_LOCALE=ro
+FIREFOX_SHA256=f8eb37e54039c51753fd83864e3e09634450eeee59303b0aa54419a638078a0e
+GO=go@1.27.4
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+version=$(sed -n 's/^pkgver=//p' "$root/pkgbuild/PKGBUILD")
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/yukitube
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+out=$work/YukiTube-portable
+mkdir -p "$cache" "$out/App/share/addons"
+
+fetch() { # url sha256 file
+  if [[ ! -f $3 ]] || ! echo "$2  $3" | sha256sum --quiet -c - 2>/dev/null; then
+    curl -fsSL --max-time 600 -o "$3.part" "$1"
+    echo "$2  $3.part" | sha256sum --quiet -c -
+    mv "$3.part" "$3"
+  fi
+}
+
+# Firefox: the official installer is a 7-Zip archive; its core/ folder is the
+# whole program.
+setup=$cache/firefox-setup-$FIREFOX_VERSION-win64-$FIREFOX_LOCALE.exe
+fetch "https://ftp.mozilla.org/pub/firefox/releases/$FIREFOX_VERSION/win64/$FIREFOX_LOCALE/Firefox%20Setup%20$FIREFOX_VERSION.exe" "$FIREFOX_SHA256" "$setup"
+mkdir -p "$work/setup"
+bsdtar -xf "$setup" -C "$work/setup"
+[[ -f $work/setup/core/firefox.exe ]] || { echo "No firefox.exe in the installer" >&2; exit 1; }
+mv "$work/setup/core" "$out/App/Firefox"
+install -Dm644 "$root/portable/policies.json" "$out/App/Firefox/distribution/policies.json"
+
+# Add-ons and profile settings.
+while IFS=$'\t' read -r name guid url sha256; do
+  [[ -z $name || $name == \#* ]] && continue
+  fetch "$url" "$sha256" "$cache/$guid.xpi"
+  cp "$cache/$guid.xpi" "$out/App/share/addons/"
+done <"$root/share/addons.tsv"
+cp "$root/share/addons.tsv" "$root/share/user.js" "$root/share/userChrome.css" "$out/App/share/"
+
+# The launcher: a GUI program (no console window) with the YukiTube icon.
+cp -r "$root/portable/launcher" "$work/launcher"
+(
+  cd "$work/launcher"
+  mise exec "$GO" -- go run github.com/akavel/rsrc@v0.10.2 -arch amd64 -ico "$root/windows/yukitube.ico" -o rsrc_windows_amd64.syso
+  GOOS=windows GOARCH=amd64 CGO_ENABLED=0 mise exec "$GO" -- go build -trimpath -ldflags "-s -w -H=windowsgui" -o "$out/YukiTube.exe" .
+)
+
+# Text files get CRLF and a BOM so Notepad shows them right.
+crlf() { { printf '\xef\xbb\xbf'; sed 's/$/\r/' "$1"; } >"$2"; }
+crlf "$root/dist-docs/windows-portable/README.txt" "$out/README.txt"
+crlf "$root/dist-docs/windows-portable/INSTRUCTIUNI.txt" "$out/INSTRUCTIUNI.txt"
+crlf "$root/LICENSE" "$out/LICENSE.txt"
+
+mkdir -p "$root/dist"
+zip="$root/dist/yukitube-$version-windows-portable.zip"
+rm -f "$zip"
+(cd "$work" && zip -qr -9 "$zip" YukiTube-portable)
+echo "Built:"
+ls -lh "$zip"

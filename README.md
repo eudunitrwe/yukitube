@@ -74,3 +74,11 @@ Creează în `dist/` două arhive separate, fiecare cu add-on-urile incluse (ins
 - `yukitube-<versiune>-windows.zip`: `Instaleaza.cmd` și celelalte fișiere pe care dai dublu-click, `README.txt`, `INSTALARE.txt`
 
 Textele din arhive sunt în `dist-docs/`.
+
+## Windows portabil
+
+```sh
+bin/dist-portable
+```
+
+Creează `dist/yukitube-<versiune>-windows-portable.zip`: `YukiTube.exe` (launcherul din `portable/launcher/`, scris în Go), un Firefox pentru Windows în `App\Firefox` (versiune fixată și verificată cu SHA-256 în script) și extensiile. Profilul stă în `Data\`, lângă exe, deci nu se instalează nimic, nici măcar Firefox. Textele din arhivă sunt în `dist-docs/windows-portable/`. E nevoie de Go (`mise install go@1.27.4`).
