@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=YukiTube
+Name[ro]=YukiTube
+Comment=YouTube in its own window, without ads
+Comment[ro]=YouTube în fereastra lui, fără reclame
+Exec=yukitube %u
+Icon=yukitube
+Terminal=false
+Categories=AudioVideo;Video;Network;
+Keywords=youtube;video;music;
+StartupWMClass=yukitube

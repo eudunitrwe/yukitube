@@ -1,0 +1,68 @@
+#!/bin/bash
+# yukitube — YouTube in its own Firefox window, with uBlock Origin and YouTube NonStop.
+#
+#   yukitube                 open YouTube
+#   yukitube <link>          open a YouTube link
+#   yukitube <words...>      search YouTube
+#
+# The window runs on a Firefox profile of its own, so its sign-in, history,
+# and add-ons never mix with the user's main Firefox.
+set -euo pipefail
+
+here=$(dirname "$(readlink -f "$0")")
+if [[ -n ${YUKITUBE_SHARE:-} ]]; then
+  share=$YUKITUBE_SHARE
+elif [[ -d $here/../share/yukitube ]]; then
+  share=$here/../share/yukitube
+else
+  share=$here/../share
+fi
+profile=${YUKITUBE_PROFILE:-${XDG_DATA_HOME:-$HOME/.local/share}/yukitube/profile}
+theme=${YUKITUBE_THEME:-$HOME/.local/state/theme/current}
+
+fail() {
+  echo "yukitube: $*" >&2
+  command -v notify-send >/dev/null && notify-send -a YukiTube "YukiTube" "$*" || true
+  exit 1
+}
+
+command -v firefox >/dev/null || fail "Firefox is not installed. Install it with: sudo pacman -S firefox"
+
+mkdir -p "$profile/extensions" "$profile/chrome"
+
+# Add-ons are copied in once; after that Firefox keeps them updated itself.
+# The package ships verified copies; a checkout downloads and verifies them.
+while IFS=$'\t' read -r name guid url sha256; do
+  [[ -z $name || $name == \#* ]] && continue
+  target="$profile/extensions/$guid.xpi"
+  [[ -f $target ]] && continue
+  if [[ -f $share/addons/$guid.xpi ]]; then
+    cp "$share/addons/$guid.xpi" "$target"
+  else
+    tmp=$(mktemp "$profile/extensions/.download.XXXXXX")
+    curl -fsSL --max-time 60 -o "$tmp" "$url" || { rm -f "$tmp"; fail "Could not download $name."; }
+    echo "$sha256  $tmp" | sha256sum --quiet -c - || { rm -f "$tmp"; fail "$name did not match its checksum."; }
+    mv "$tmp" "$target"
+  fi
+done <"$share/addons.tsv"
+
+cp "$share/user.js" "$profile/user.js"
+
+# Follow the desktop theme's accent; otherwise the default yellow.
+accent=$(sed -nE 's/^[[:space:]]*accent[[:space:]]*=[[:space:]]*["'"'"'](#[0-9a-fA-F]{6})["'"'"'].*/\1/p' "$theme/colors.toml" 2>/dev/null | head -n1)
+sed "s/@ACCENT@/${accent:-#FFD60A}/" "$share/userChrome.css" >"$profile/chrome/userChrome.css"
+
+# A YouTube link opens as is; anything else is a search.
+url=
+if (($#)); then
+  input="$*"
+  if [[ $input =~ ^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$) ]]; then
+    [[ $input == http* ]] && url=$input || url="https://$input"
+  else
+    url="https://www.youtube.com/results?search_query=$(jq -rn --arg q "$input" '$q|@uri')"
+  fi
+fi
+
+# --name sets the Wayland app id, so Hyprland and the launcher match the
+# window to yukitube.desktop. A second launch reaches the running window.
+exec firefox --name yukitube --class yukitube --profile "$profile" ${YUKITUBE_FIREFOX_ARGS:-} ${url:+"$url"}

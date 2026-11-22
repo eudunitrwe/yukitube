@@ -1,0 +1,18 @@
+/* Written by YukiTube at every launch; edits here are overwritten. */
+
+:root {
+  --yukitube-accent: @ACCENT@;
+}
+
+/* An app, not a browser: no tab strip. */
+#TabsToolbar {
+  visibility: collapse !important;
+}
+
+#nav-bar {
+  border-bottom: 2px solid var(--yukitube-accent) !important;
+}
+
+#urlbar[focused] > #urlbar-background {
+  outline: 2px solid var(--yukitube-accent) !important;
+}

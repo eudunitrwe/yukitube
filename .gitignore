@@ -1,0 +1,4 @@
+/pkgbuild/pkg/
+/pkgbuild/src/
+/pkgbuild/*.xpi
+*.pkg.tar.*
