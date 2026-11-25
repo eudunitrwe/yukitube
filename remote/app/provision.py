@@ -18,7 +18,8 @@ import sys
 import time
 
 VIOLENTMONKEY = "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}"
-USERSCRIPT_URL = "http://127.0.0.1:8975/yukitube.user.js"
+PORT = os.environ.get("YUKITUBE_PORT") or "8975"
+USERSCRIPT_URL = f"http://127.0.0.1:{PORT}/yukitube.user.js"
 MARKER = ".yukitube-bridge-installed"
 TIMEOUT = 60
 

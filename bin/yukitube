@@ -41,8 +41,9 @@ elif [[ -f $here/../remote/app/yukitube_remote.py ]]; then
   remote=(python3 "$here/../remote/app/yukitube_remote.py")
 fi
 
+port=${YUKITUBE_PORT:-8975}
 remote_running() {
-  curl -fs --max-time 1 http://127.0.0.1:8975/nt/ping 2>/dev/null | grep -q '"yukitube-remote"'
+  curl -fs --max-time 1 "http://127.0.0.1:$port/nt/ping" 2>/dev/null | grep -q '"yukitube-remote"'
 }
 
 # Started detached. A remote that already runs takes the arguments from the
@@ -93,7 +94,7 @@ cp "$share/userChrome.css" "$share/userContent.css" "$profile/chrome/"
 url=
 if (($#)); then
   input="$*"
-  if [[ $input =~ ^http://127\.0\.0\.1:8975/ || $input =~ ^https://accounts\.google\.com/ ]]; then
+  if [[ $input == "http://127.0.0.1:$port/"* || $input =~ ^https://accounts\.google\.com/ ]]; then
     url=$input
   elif [[ $input =~ ^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$) ]]; then
     [[ $input == http* ]] && url=$input || url="https://$input"

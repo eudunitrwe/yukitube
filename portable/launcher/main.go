@@ -106,9 +106,19 @@ func run(exe string, args []string) error {
 	return cmd.Process.Release()
 }
 
+// The remote's address; YUKITUBE_PORT moves it off the default port.
+var remoteURL = "http://127.0.0.1:" + remotePort()
+
+func remotePort() string {
+	if p := os.Getenv("YUKITUBE_PORT"); p != "" {
+		return p
+	}
+	return "8975"
+}
+
 func remoteRunning() bool {
 	client := http.Client{Timeout: time.Second}
-	resp, err := client.Get("http://127.0.0.1:8975/nt/ping")
+	resp, err := client.Get(remoteURL + "/nt/ping")
 	if err != nil {
 		return false
 	}
@@ -121,7 +131,7 @@ func remoteRunning() bool {
 // that already runs.
 func forward(target string) bool {
 	body, _ := json.Marshal(map[string]string{"arg": target})
-	req, err := http.NewRequest("POST", "http://127.0.0.1:8975/nt/open", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", remoteURL+"/nt/open", bytes.NewReader(body))
 	if err != nil {
 		return false
 	}
@@ -209,7 +219,7 @@ func resolve(input string) string {
 	switch {
 	case input == "":
 		return ""
-	case strings.HasPrefix(input, "http://127.0.0.1:8975/"), strings.HasPrefix(input, "https://accounts.google.com/"):
+	case strings.HasPrefix(input, remoteURL+"/"), strings.HasPrefix(input, "https://accounts.google.com/"):
 		return input
 	case youtubeLink.MatchString(input):
 		if strings.HasPrefix(strings.ToLower(input), "http") {

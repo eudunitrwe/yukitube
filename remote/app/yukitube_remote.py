@@ -68,17 +68,21 @@ YUKITUBE_OPEN = os.environ.get("YUKITUBE_OPEN", "")
 
 def userscript_bytes():
     """The bridge userscript: built into assets/ for releases, assembled from
-    ../browser/ when running from a checkout."""
+    ../browser/ when running from a checkout. It talks to this remote's port
+    (YUKITUBE_PORT), not always the default one."""
     built = os.path.join(resource_dir(), "yukitube.user.js")
+    data = b""
     if os.path.isfile(built):
         with open(built, "rb") as f:
-            return f.read()
-    src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "browser")
-    parts = ("userscript-header.js", "agent-core.js", "userscript-glue.js")
-    try:
-        return b"".join(open(os.path.join(src, p), "rb").read() for p in parts)
-    except OSError:
-        return b""
+            data = f.read()
+    else:
+        src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "browser")
+        parts = ("userscript-header.js", "agent-core.js", "userscript-glue.js")
+        try:
+            data = b"".join(open(os.path.join(src, p), "rb").read() for p in parts)
+        except OSError:
+            return b""
+    return data.replace(b"127.0.0.1:8975", f"127.0.0.1:{PORT}".encode())
 
 
 def remote_settings():
@@ -772,7 +776,7 @@ class Player(QWidget):
         self.net = QNetworkAccessManager(self)
         self.ws = WsServer(self)
         self.ws.userscript = userscript_bytes()
-        self.ws.ping = {"app": "yukitube-remote", "version": VERSION}
+        self.ws.ping = {"app": "yukitube-remote", "version": VERSION, "tabs": 0}
         self.ws.message.connect(self.on_message)
         self.old_bridge_seen = 0.0
         self.ws.old_bridge.connect(lambda: setattr(self, "old_bridge_seen", time.monotonic()))
@@ -1869,6 +1873,7 @@ class Player(QWidget):
 
         self.dot.set_on(connected)
         n = len(self.tabs)
+        self.ws.ping["tabs"] = n
         if connected:
             self.status.setText(f"{browser_name(st)} · {n} tab{'uri' if n != 1 else ''}")
         elif self.bridges:
