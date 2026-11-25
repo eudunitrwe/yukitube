@@ -60,7 +60,7 @@ Only the remote opens; nothing to click. The very first launch takes a few secon
 
 - **Settings** (⚙ button, or menu ⋮ → Settings…): the language, starting YukiTube with the computer, a shortcut on the desktop, showing the recommendations, and updates.
 - **Updates:** at start YukiTube looks on GitHub for a new version. When there is one, the player offers it: click **Download**, then **Restart now** — or just keep listening, and it is installed the next time you start YukiTube. The download is checked against the release's SHA-256 sums. Windows asks for admin rights (installer version) and the Arch package for your password; the portable and per-user Linux versions update by themselves. Settings → **Check now** looks right away.
-- **Music for you:** a small strip at the bottom of the player, music only. Signed in with Google, it shows YouTube's **Music** tab for your account (the one on the YouTube home page); otherwise, songs from the YouTube Mixes of what you play most (remembered on this computer only). ↻ shows more. Click one to play it.
+- **Music for you:** a small strip at the bottom of the player, music only. Signed in with Google, it shows the YouTube Mixes of what your account listened to lately (newest first), then YouTube's **Music** tab; otherwise, songs from the YouTube Mixes of what you play most (remembered on this computer only). ↻ shows more. Click one to play it.
 
 Full step-by-step instructions (in Romanian) are inside each archive: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -108,7 +108,7 @@ Se deschide doar telecomanda; nu trebuie apăsat nimic. Prima pornire durează c
 
 - **Setări** (butonul ⚙ sau meniul ⋮ → Setări…): limba, pornirea YukiTube odată cu calculatorul, scurtătura pe desktop, afișarea recomandărilor și actualizările.
 - **Actualizări:** la pornire YukiTube caută pe GitHub o versiune nouă. Dacă există, playerul ți-o propune: apasă **Descarcă**, apoi **Repornește acum** — sau ascultă mai departe, și se instalează data viitoare când pornești YukiTube. Fișierul descărcat e verificat cu sumele SHA-256 ale versiunii. Windows cere drepturi de administrator (varianta cu installer), iar pachetul Arch parola ta; variantele portabilă și Linux per-utilizator se actualizează singure. Setări → **Verifică acum** caută imediat.
-- **Muzică pentru tine:** o bandă mică în josul playerului, doar cu muzică. Cu contul Google conectat, arată secțiunea **Music** de pe pagina principală YouTube, pentru contul tău; fără cont, piese din Mix-urile YouTube ale melodiilor pe care le asculți cel mai des (ținute minte doar pe acest calculator). ↻ arată altele. Apasă pe una ca s-o redai.
+- **Muzică pentru tine:** o bandă mică în josul playerului, doar cu muzică. Cu contul Google conectat, arată Mix-urile YouTube ale pieselor ascultate recent în contul tău (cele mai noi întâi), apoi secțiunea **Music** din YouTube; fără cont, piese din Mix-urile YouTube ale melodiilor pe care le asculți cel mai des (ținute minte doar pe acest calculator). ↻ arată altele. Apasă pe una ca s-o redai.
 
 Instrucțiunile complete, pas cu pas, sunt în fiecare arhivă: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 

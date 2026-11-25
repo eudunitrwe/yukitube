@@ -17,7 +17,7 @@ import sys
 import threading
 import time
 
-from PySide6.QtCore import QObject, QProcess, QTimer, Signal
+from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, Signal
 
 import provision
 
@@ -153,8 +153,18 @@ class FirefoxHost(QObject):
         if url:
             args.append(url)
         p = QProcess(self)
-        env = p.processEnvironment()
+        # The whole session environment (XDG_RUNTIME_DIR and the rest: without
+        # it Firefox finds no PipeWire/PulseAudio and plays without sound). A
+        # QProcess's own processEnvironment() is empty until set, and setting
+        # one with only our variable would leave Firefox with nothing else.
+        env = QProcessEnvironment.systemEnvironment()
         env.remove("MOZ_HEADLESS")
+        # The Linux release's remote is a PyInstaller build, which points the
+        # libraries at its own folder; Firefox needs the system's.
+        if env.contains("LD_LIBRARY_PATH_ORIG"):
+            env.insert("LD_LIBRARY_PATH", env.value("LD_LIBRARY_PATH_ORIG"))
+        elif getattr(sys, "frozen", False):
+            env.remove("LD_LIBRARY_PATH")
         # No crash reporter: the Windows build leaves it out.
         env.insert("MOZ_CRASHREPORTER_DISABLE", "1")
         p.setProcessEnvironment(env)

@@ -211,9 +211,9 @@ STRINGS = {
 
     # recommendations
     "recs_title": {"en": "MUSIC FOR YOU", "ro": "MUZICĂ PENTRU TINE", "ru": "МУЗЫКА ДЛЯ ВАС"},
-    "recs_for_you": {"en": "YouTube's Music tab · your Google account",
-                     "ro": "secțiunea Music din YouTube · contul tău Google",
-                     "ru": "раздел «Музыка» YouTube · ваш аккаунт Google"},
+    "recs_for_you": {"en": "from what you listened to lately · your Google account",
+                     "ro": "după ce ai ascultat recent · contul tău Google",
+                     "ru": "по тому, что вы недавно слушали · ваш аккаунт Google"},
     "recs_history": {"en": "mixes of what you play often", "ro": "mixuri după ce asculți des",
                      "ru": "миксы из того, что вы часто слушаете"},
     "recs_loading": {"en": "Looking for something you'll like…", "ro": "Caut ceva ce o să-ți placă…",

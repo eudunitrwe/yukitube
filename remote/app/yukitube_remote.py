@@ -37,7 +37,7 @@ import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -924,10 +924,15 @@ class RecTile(QWidget):
         self._hover = False
         self.update()
 
+    def mousePressEvent(self, e):
+        # Taken here: passed on, the press would start moving the window
+        # (Player.mousePressEvent), which swallows the click.
+        e.accept()
+
     def mouseReleaseEvent(self, e):
         if not self.d:
             return
-        if e.button() == Qt.LeftButton:
+        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
             self.activated.emit(self.d)
         elif e.button() == Qt.MiddleButton:
             self.win.open_in_browser(self.d)
@@ -2655,8 +2660,9 @@ class Player(QWidget):
             self.recs.set_status(T("recs_loading"))
         key, tab = self._youtube_tab()
         if acc and tab:
-            self.ws.send(tab["conn"], {"type": "cmd", "tab": key, "action": "recommend", "reqId": req})
-            QTimer.singleShot(15000, lambda: self._recs_local(req) if req == self.recs_req and
+            self.ws.send(tab["conn"], {"type": "cmd", "tab": key, "action": "recommend", "reqId": req,
+                                       "value": {"seeds": self.history.seeds(3)}})
+            QTimer.singleShot(30000, lambda: self._recs_local(req) if req == self.recs_req and
                               not self._recs_done else None)
             self._recs_done = False
             return

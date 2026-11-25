@@ -332,13 +332,57 @@ function createYukiAgent(send) {
     return videosIn(await res.json(), limit);
   }
 
-  async function recommend(reqId) {
-    let items = [], error = "";
+  // The songs of a YouTube Mix (a watch page opened with list=RD<id>):
+  // music like that one, personalised for the signed-in account.
+  async function mixOf(id, limit) {
+    const r = await fetch("/watch?v=" + encodeURIComponent(id) + "&list=RD" + encodeURIComponent(id),
+      { credentials: "include" });
+    const html = await r.text();
+    const m = html.match(/(?:var ytInitialData|window\["ytInitialData"\])\s*=\s*(\{.+?\});\s*<\/script>/s);
+    if (!m) return [];
+    const out = [];
+    const txt = (n) => !n ? "" : n.simpleText || (n.runs || []).map((x) => x.text).join("");
+    const walk = (n) => {
+      if (out.length >= limit || !n || typeof n !== "object") return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      const pv = n.playlistPanelVideoRenderer;
+      if (pv && pv.videoId) {
+        out.push({ id: pv.videoId, title: txt(pv.title), channel: txt(pv.shortBylineText || pv.longBylineText),
+          duration: txt(pv.lengthText), views: "" });
+        return;
+      }
+      for (const k in n) walk(n[k]);
+    };
+    walk(JSON.parse(m[1]));
+    return out;
+  }
+
+  // Music for the signed-in account, fresh: the Mixes of what it listened to
+  // lately (YouTube's watch history, newest first; the player's own
+  // most-played as well), then YouTube's Music tab. What was just heard is
+  // left out.
+  async function recommend(reqId, val) {
+    let items = [], error = "", recent = [];
     try {
       if (isMusic) throw new Error("recommendations only from www.youtube.com");
-      items = await musicTab(30);
+      try { recent = await pageVideos("/feed/history", 20); } catch (e) { recent = []; }
+      const local = (val && Array.isArray(val.seeds)) ? val.seeds.map(String) : [];
+      const seeds = [];
+      for (const id of recent.map((v) => v.id).concat(local)) {
+        if (seeds.length >= 4) break;
+        if (!seeds.includes(id)) seeds.push(id);
+      }
+      const mixes = await Promise.all(seeds.map((id) => mixOf(id, 25).catch(() => [])));
+      let tab = [];
+      try { tab = await musicTab(30); } catch (e) { if (!seeds.length) throw e; }
+      const heard = new Set(recent.map((v) => v.id).concat(seeds));
+      const seen = new Set();
+      const take = (v) => { if (v && v.id && !heard.has(v.id) && !seen.has(v.id)) { seen.add(v.id); items.push(v); } };
+      for (let i = 0; i < 25; i++) mixes.forEach((mx) => take(mx[i]));
+      tab.forEach(take);
+      items = items.slice(0, 40);
     } catch (e) { error = String(e && e.message || e); }
-    send({ type: "recommendations", reqId, items, error, loggedIn: account().loggedIn });
+    send({ type: "recommendations", reqId, items, error, loggedIn: account().loggedIn, fresh: recent.length > 0 });
   }
 
   function handle(msg) {
@@ -381,7 +425,7 @@ function createYukiAgent(send) {
       }
       case "open": if (val && val.id) navigate(String(val.id), val.t); break;
       case "search": search(String(val || ""), msg.reqId); return;
-      case "recommend": recommend(msg.reqId); return;
+      case "recommend": recommend(msg.reqId, val); return;
       case "focus": window.focus(); break;
     }
     setTimeout(() => push(true), 120);
