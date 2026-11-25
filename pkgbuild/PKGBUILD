@@ -1,5 +1,5 @@
 pkgname=yukitube
-pkgver=0.4.2
+pkgver=0.4.3
 pkgrel=1
 pkgdesc='YouTube in its own retrowave Firefox window, without ads, with a remote'
 arch=('any')

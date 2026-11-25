@@ -1,4 +1,4 @@
-# Instalare YukiTube 0.4.2 pe Linux
+# Instalare YukiTube 0.4.3 pe Linux
 
 Arhiva conține YukiTube: fereastra YouTube și telecomanda ei (fostul NeonTube), ca o singură aplicație. Funcționează pe Linux 64-bit (x86_64) cu glibc 2.34 sau mai nou (Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
 
@@ -22,8 +22,8 @@ Setările vechiului NeonTube (`~/.config/NeonTube/`) sunt preluate automat de te
 ## Pasul 1: dezarhivează
 
 ```sh
-tar -xzf yukitube-0.4.2-linux-x86_64.tar.gz
-cd yukitube-0.4.2-linux-x86_64
+tar -xzf yukitube-0.4.3-linux-x86_64.tar.gz
+cd yukitube-0.4.3-linux-x86_64
 ```
 
 ## Pasul 2: alege o variantă de instalare
@@ -33,7 +33,7 @@ Folosește **doar una** dintre ele, altfel YukiTube apare de două ori în launc
 ### Varianta A: Arch Linux (pachet de sistem, recomandat)
 
 ```sh
-sudo pacman -U yukitube-0.4.2-1-any.pkg.tar.zst
+sudo pacman -U yukitube-0.4.3-1-any.pkg.tar.zst
 ```
 
 Pacman instalează și dependențele (Firefox, curl, jq, Python, PySide6). Telecomanda rulează pe PySide6-ul sistemului. Dezinstalare:

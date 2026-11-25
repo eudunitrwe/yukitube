@@ -31,7 +31,7 @@ from dock import Docker
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 PORT = int(os.environ.get("YUKITUBE_PORT") or os.environ.get("NEONTUBE_PORT") or "8975")
 WIDTH = 460
 
