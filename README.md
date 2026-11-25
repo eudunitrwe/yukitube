@@ -1,8 +1,8 @@
 # YukiTube
 
-**🇬🇧 YouTube in its own retrowave Firefox window — no ads, no "Video paused. Continue watching?", with a small remote that controls it. For Linux and Windows 10/11.**
+**🇬🇧 A small YouTube player with skins (retrowave neon, or a classic 90s look) — no ads, no "Video paused. Continue watching?". YouTube plays in a hidden Firefox behind it. For Linux and Windows 10/11.**
 
-**🇷🇴 YouTube într-o fereastră proprie de Firefox, în stil retrowave — fără reclame, fără „Continui vizionarea?”, cu o telecomandă mică ce o controlează. Pentru Linux și Windows 10/11.**
+**🇷🇴 Un player YouTube mic, cu skin-uri (retrowave neon sau un look clasic din anii ’90) — fără reclame, fără „Continui vizionarea?”. YouTube cântă într-un Firefox ascuns, în spatele lui. Pentru Linux și Windows 10/11.**
 
 Made by **[eudunitrwe](https://github.com/eudunitrwe)** with the help of **[Claude Code](https://claude.com/claude-code)**.
 Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude Code](https://claude.com/claude-code)**.
@@ -11,7 +11,8 @@ Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude 
 
 | | File / Fișier |
 | --- | --- |
-| 🐧 Linux (x86_64) | `yukitube-<version>-linux-x86_64.tar.gz` |
+| 🐧 Arch Linux | `yukitube-<version>-1-any.pkg.tar.zst` (small, uses the system's Python/PySide6) |
+| 🐧 Linux (x86_64, any distro) | `yukitube-<version>-linux-x86_64.tar.xz` |
 | 🪟 Windows 10/11 (x64, portable) | `yukitube-<version>-windows-x64.zip` |
 
 ---
@@ -31,13 +32,12 @@ YukiTube is a YouTube player: you use only the **YukiTube remote** (search, play
 Needs Firefox, `curl` and `jq` (x86_64, glibc 2.34+: Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
 
 ```sh
-tar -xzf yukitube-<version>-linux-x86_64.tar.gz
-cd yukitube-<version>-linux-x86_64
-
 # Option A — Arch Linux (system package, recommended):
 sudo pacman -U yukitube-<version>-1-any.pkg.tar.zst      # uninstall: sudo pacman -R yukitube
 
 # Option B — any distro, no sudo (installs to ~/.local):
+tar -xJf yukitube-<version>-linux-x86_64.tar.xz
+cd yukitube-<version>-linux-x86_64
 ./install.sh                                            # uninstall: ./install.sh --uninstall
 ```
 
@@ -76,13 +76,12 @@ YukiTube e un player YouTube: folosești doar **telecomanda YukiTube** (căutare
 Ai nevoie de Firefox, `curl` și `jq` (x86_64, glibc 2.34+: Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
 
 ```sh
-tar -xzf yukitube-<versiune>-linux-x86_64.tar.gz
-cd yukitube-<versiune>-linux-x86_64
-
 # Varianta A — Arch Linux (pachet de sistem, recomandat):
 sudo pacman -U yukitube-<versiune>-1-any.pkg.tar.zst     # dezinstalare: sudo pacman -R yukitube
 
 # Varianta B — orice distribuție, fără sudo (în ~/.local):
+tar -xJf yukitube-<versiune>-linux-x86_64.tar.xz
+cd yukitube-<versiune>-linux-x86_64
 ./install.sh                                            # dezinstalare: ./install.sh --uninstall
 ```
 
@@ -121,19 +120,21 @@ Toate sunt versiunile semnate de pe addons.mozilla.org, verificate cu SHA-256 la
 ```
 yukitube / YukiTube.exe
  ├─ pregătește profilul Firefox (add-on-uri, user.js, userChrome.css, userContent.css)
- ├─ pornește telecomanda (dacă nu rulează deja), cu YUKITUBE_OPEN=<lansatorul>
- └─ pornește Firefox pe profilul YukiTube
+ └─ pornește telecomanda cu --firefox <exe> --profile <profil>
+     (dacă rulează deja, îi trimite link-ul sau căutarea: POST /yt/open)
 
-telecomanda (remote/app, Python + PySide6) ── 127.0.0.1:8975 ──  YukiTube Bridge (userscript în Violentmonkey)
-   GET  /nt/ping            lansatorul vede dacă telecomanda rulează
-   GET  /yukitube.user.js   Violentmonkey instalează (și actualizează) puntea de aici
-                            (/neontube.user.js rămâne pentru punțile instalate înainte de redenumire)
-   POST /nt/up              puntea trimite starea și primește comenzi (GM_xmlhttpRequest)
+telecomanda (remote/app, Python + PySide6)
+ ├─ pornește Firefox headless pe profil (firefox_host.py)
+ └─ 127.0.0.1:8975 ──  YukiTube Bridge (userscript în Violentmonkey)
+      GET  /yt/ping            lansatorul vede dacă telecomanda rulează
+      GET  /yukitube.user.js   Violentmonkey actualizează puntea de aici
+      POST /yt/up              puntea trimite starea și primește comenzi (GM_xmlhttpRequest)
+      POST /yt/open            o a doua lansare: link sau căutare
 ```
 
-Puntea își trimite versiunea (`bridge`) la fiecare mesaj; telecomanda nu dă comenzi punților fără versiune (cele rămase de la NeonTube și primele YukiTube), care controlau YouTube într-un fel care nu merge în Firefox-ul YukiTube.
+Puntea își trimite versiunea (`bridge`) la fiecare mesaj; telecomanda nu dă comenzi punților fără versiune. Cererile HTTP cer antetul `X-YukiTube`, ca paginile web să nu le poată trimite.
 
-De ce userscript și nu extensia din `remote/browser/extension`: Firefox-ul obișnuit refuză extensiile nesemnate, iar puntea trebuie să ruleze în Firefox-ul lui YukiTube. Violentmonkey e semnat pe AMO, așa că totul merge pe un Firefox normal, fără setări de dezvoltator. Lansatorul pornește doar telecomanda, cu `--firefox <exe> --profile <profil>`; telecomanda pornește Firefox **headless** pe profil (`remote/app/firefox_host.py`) și îl repornește cu fereastră doar când trebuie arătată (autentificare, „Arată fereastra YouTube”), apoi înapoi headless când fereastra e închisă. O a doua lansare (`yukitube <link|cuvinte>`) îi trimite telecomenzii care rulează deja link-ul sau căutarea (`POST /nt/open`, cu antetul `X-NeonTube`, ca paginile web să nu-l poată apela). La prima pornire, telecomanda pregătește întâi profilul (`remote/app/provision.py`), într-un fir separat: pornește Firefox **headless** pe profil, cu Marionette (`--marionette`, portul ales de Firefox prin `marionette.port = 0` din `user.js`), deschide pagina de opțiuni a Violentmonkey și îi trimite userscript-ul prin comanda lui internă `ParseScript` (aceeași pe care o folosește butonul „Install”), apoi închide Firefox. Nu apare nicio pagină de confirmare. Un marcaj în profil (`.yukitube-bridge-installed`) face ca asta să se întâmple o singură dată; dacă nu a reușit (jurnal: `~/.local/state/yukitube/remote.log`), se reîncearcă la următoarea pornire. Din meniul telecomenzii (⋮ → „Conectează YukiTube”) se poate instala și manual, prin pagina Violentmonkey.
+De ce userscript și nu extensia din `remote/browser/extension`: Firefox-ul obișnuit refuză extensiile nesemnate, iar puntea trebuie să ruleze în Firefox-ul lui YukiTube. Violentmonkey e semnat pe AMO, așa că totul merge pe un Firefox normal, fără setări de dezvoltator. Lansatorul pornește doar telecomanda, cu `--firefox <exe> --profile <profil>`; telecomanda pornește Firefox **headless** pe profil (`remote/app/firefox_host.py`) și îl repornește cu fereastră doar când trebuie arătată (autentificare, „Arată fereastra YouTube”), apoi înapoi headless când fereastra e închisă. O a doua lansare (`yukitube <link|cuvinte>`) îi trimite telecomenzii care rulează deja link-ul sau căutarea. La prima pornire, și când puntea are o versiune nouă, telecomanda pregătește întâi profilul (`remote/app/provision.py`), într-un fir separat: pornește Firefox **headless** pe profil, cu Marionette (`--marionette`, portul ales de Firefox prin `marionette.port = 0` din `user.js`), deschide pagina de opțiuni a Violentmonkey și îi trimite userscript-ul prin comanda lui internă `ParseScript` (aceeași pe care o folosește butonul „Install”), șterge punțile rămase de la versiuni mai vechi, apoi închide Firefox. Nu apare nicio pagină de confirmare. Un marcaj în profil (`.yukitube-bridge-installed`, cu versiunea punții) face ca asta să se întâmple o singură dată pe versiune; dacă nu a reușit (jurnal: `~/.local/state/yukitube/remote.log`), se reîncearcă la următoarea pornire. Din meniul telecomenzii (⋮ → „Conectează YukiTube”) se poate instala și manual, prin pagina Violentmonkey.
 
 În Firefox, Violentmonkey rulează puntea izolată de pagină, iar YouTube ignoră `video.play()`/`pause()` și click-urile simulate. De aceea puntea folosește API-ul player-ului YouTube prin `unsafeWindow`, deschide videoclipurile prin navigarea internă YouTube (`yt-navigate`, fără reîncărcare) și își păstrează identificatorul tab-ului în `sessionStorage`. YouTube NonStop amână orice pauză care nu urmează unui click sau unei taste în pagină, așa că o pauză venită de la telecomandă e terminată cu pauza originală pe care NonStop o păstrează (`yns_pause`). `user.js` permite redarea automată, ca un videoclip deschis din telecomandă să pornească singur.
 
@@ -184,7 +185,7 @@ Scurtăturile telecomenzii sunt în README-urile din arhive (`dist-docs/`).
 - `share/user.js`: setările profilului (pagina de start, fără taburi, temă întunecată, add-on-urile activate fără întrebări). Se rescrie la fiecare pornire; restul setărilor le poți schimba liber.
 - `share/userChrome.css`: ascunde bara de taburi și dă ferestrei culorile retrowave. `share/userContent.css`: aceleași culori pe YouTube (doar variabilele de culoare ale YouTube și câteva accente, nu layout-ul).
 - `remote/tools/make_icons.py`: generează toate iconițele din logo-ul desenat în `remote/app/logo.py` (PNG/ICO pentru telecomandă și Windows, SVG pentru Linux).
-- `remote/app/`: telecomanda (`yukitube_remote.py` interfața, `dock.py` lipirea de fereastra YouTube prin Hyprland IPC / user32, `logo.py` logo-ul, `wsserver.py` serverul local, `ytsearch.py` căutarea fără cheie API).
+- `remote/app/`: telecomanda (`yukitube_remote.py` interfața, `firefox_host.py` Firefox-ul ascuns, `provision.py` pregătirea profilului, `hyprland.py` fereastra plutitoare pe Hyprland, `logo.py` logo-ul, `wsserver.py` serverul local, `ytsearch.py` căutarea fără cheie API).
 - `remote/browser/`: puntea (`agent-core.js` rulează în tab-ul YouTube; `userscript-*.js` o împachetează ca userscript; `extension/` ca extensie MV3).
 - `windows/`: iconița și `shortcuts.ps1` (scurtăturile din meniul Start pentru varianta portabilă).
 - `dist-docs/`: README-urile și instrucțiunile de instalare din arhive.
@@ -197,9 +198,10 @@ Ca să actualizezi versiunile fixate ale add-on-urilor, schimbă link-ul și has
 bin/dist
 ```
 
-Creează în `dist/` câte o arhivă pentru fiecare sistem, plus `yukitube-<versiune>-SHA256SUMS`:
+Creează în `dist/` fișierele release-ului, plus `yukitube-<versiune>-SHA256SUMS`:
 
-- `yukitube-<versiune>-linux-x86_64.tar.gz`: lansatorul, telecomanda compilată cu PyInstaller, pachetul Arch, `install.sh` pentru orice distribuție (fără sudo), `README.md`, `INSTALARE.md`.
-- `yukitube-<versiune>-windows-x64.zip`: varianta portabilă, folderul `YukiTube\` cu `YukiTube.exe`, un Firefox pentru Windows în `App\Firefox`, telecomanda în `App\Remote` (Python embeddable + PySide6), extensiile, `Creeaza-scurtaturi.cmd`, `README.txt`, `INSTALARE.txt`. Nu instalează nimic; profilul stă în `Data\`, lângă exe.
+- `yukitube-<versiune>-1-any.pkg.tar.zst`: pachetul Arch (telecomanda din surse, pe Python-ul și PySide6-ul sistemului).
+- `yukitube-<versiune>-linux-x86_64.tar.xz`: lansatorul, telecomanda compilată cu PyInstaller, `install.sh` pentru orice distribuție (fără sudo), `README.md`, `INSTALARE.md`.
+- `yukitube-<versiune>-windows-x64.zip`: varianta portabilă, folderul `YukiTube\` cu `YukiTube.exe`, un Firefox pentru Windows în `App\Firefox` (fără actualizator, crash reporter, AI local și WebGPU), telecomanda în `App\Remote` (Python embeddable + PySide6), extensiile, `Creeaza-scurtaturi.cmd`, `README.txt`, `INSTALARE.txt`. Nu instalează nimic; profilul stă în `Data\`, lângă exe.
 
 Versiunile fixate (Firefox, Python, PySide6, Go) și hash-urile lor sunt la începutul lui `bin/dist`. E nevoie de `uv`, `mise` (pentru Go), `makepkg`, `zip`, `bsdtar`, `curl` și `binutils`. Descărcările stau în `~/.cache/yukitube`.

@@ -1,8 +1,8 @@
 (() => {
   // Sent with every message: the remote only takes orders from bridges that
-  // say which version they are, so copies left over from NeonTube stay idle.
-  const BRIDGE = "1.5.0";
-  const URL_HTTP = "http://127.0.0.1:8975/nt/up";
+  // say which version they are.
+  const BRIDGE = "1.6.0";
+  const URL_HTTP = "http://127.0.0.1:8975/yt/up";
   const URL_WS = "ws://127.0.0.1:8975";
   // The same key across reloads of this tab (sessionStorage is per tab), so
   // the remote keeps controlling it instead of a stale copy of the old page.
@@ -17,16 +17,15 @@
     typeof GM !== "undefined" && GM && typeof GM.xmlHttpRequest === "function" ? GM.xmlHttpRequest.bind(GM) : null;
 
   function start() {
-    // The extension, or another copy of this bridge, already bridges this
-    // tab. Older NeonTube bridges do not count: the remote ignores them.
+    // The extension, or another copy of this bridge, already bridges this tab.
     const root = document.documentElement;
-    if (root.dataset.neontube === "ext" || root.dataset.yukitubeBridge) return;
+    if (root.dataset.yukitubeAgent === "ext" || root.dataset.yukitubeBridge) return;
     root.dataset.yukitubeBridge = BRIDGE;
-    root.dataset.neontube = "userscript";
+    root.dataset.yukitubeAgent = "userscript";
 
     let out = [];
     let ws = null;
-    const agent = createNeonAgent((msg) => {
+    const agent = createYukiAgent((msg) => {
       if (ws && ws.readyState === 1) {
         msg.tab = key; msg.agent = "userscript";
         ws.send(JSON.stringify(msg));
@@ -50,7 +49,7 @@
         gmx({
           method: "POST",
           url: URL_HTTP,
-          headers: { "Content-Type": "application/json", "X-NeonTube": "1" },
+          headers: { "Content-Type": "application/json", "X-YukiTube": "1" },
           data: JSON.stringify({ tab: key, agent: "userscript", bridge: BRIDGE, msgs }),
           timeout: 4000,
           onload: (r) => {

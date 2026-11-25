@@ -1,21 +1,16 @@
-Instalare YukiTube 0.4.3 pe Windows 10 / 11
+Instalare YukiTube 0.4.4 pe Windows 10 / 11
 ===========================================
+
+YukiTube e un player YouTube: folosești doar telecomanda YukiTube, iar
+YouTube cântă într-un Firefox ascuns, în spatele ei.
 
 Nu ai nevoie de Firefox, de Python și nici de drepturi de administrator:
 totul e în arhivă.
 
 
-0. DACĂ AI AVUT NEONTUBE SEPARAT
-
-Telecomanda NeonTube e acum telecomanda YukiTube. Închide vechiul NeonTube
-(meniul ⋮ > Ieșire), rulează Sterge-scurtaturi.cmd din folderul lui vechi,
-apoi șterge acel folder. Altfel ocupă portul 8975 și YukiTube nu își poate
-porni telecomanda. Setările telecomenzii rămân și sunt folosite mai departe.
-
-
 1. DEZARHIVEAZĂ
 
-Click dreapta pe yukitube-0.4.3-windows-x64.zip > „Extract All...”
+Click dreapta pe yukitube-0.4.4-windows-x64.zip > „Extract All...”
 (Extrage tot) și alege unde să pună folderul: de exemplu Documente,
 Desktop sau un stick USB.
 
@@ -52,7 +47,8 @@ Dublu-click pe YukiTube.exe (sau pe scurtătura YukiTube).
   d. Opțional: apasă butonul de cont (omulețul) ca să te autentifici cu
      contul Google. Se deschide fereastra YouTube; după autentificare,
      închide-o. Fereastra YouTube o poți arăta oricând cu butonul ↗ sau
-     din meniul ⋮.
+     din meniul ⋮. Cu butonul paletă alegi skin-ul (Retrowave sau
+     Clasic).
 
 Dacă punctul nu se face verde: închide YukiTube și pornește-l din nou
 (pregătirea se reia singură). Dacă tot nu merge: în telecomandă, meniul ⋮ >
@@ -79,8 +75,7 @@ DACĂ CEVA NU MERGE
     arhiva.
   - „YukiTube nu poate scrie în ...”: mută folderul într-un loc unde ai
     drept de scriere (Documente, Desktop, stick USB).
-  - Nu apare telecomanda: închide vechiul NeonTube, dacă îl ai (pasul 0).
-    Unele antivirusuri blochează la prima pornire pythonw.exe din
+  - Nu apare telecomanda: unele antivirusuri blochează la prima pornire pythonw.exe din
     App\Remote\runtime; permite-l.
   - „running scripts is disabled”: pornește scurtăturile prin fișierele
     .cmd, nu prin App\shortcuts.ps1.

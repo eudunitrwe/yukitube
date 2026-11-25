@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""YukiTube remote — the compact retrowave remote of YukiTube (formerly NeonTube).
+"""YukiTube remote — the compact player of YukiTube.
 
 The player talks to YouTube tabs through the "YukiTube Bridge" userscript
 (Violentmonkey, preinstalled in YukiTube) or the browser extension, over a
@@ -27,22 +27,52 @@ from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QApplication,
 import icons
 import ytsearch
 from logo import logo_icon, logo_pixmap
-from dock import Docker
+import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.4.3"
-PORT = int(os.environ.get("YUKITUBE_PORT") or os.environ.get("NEONTUBE_PORT") or "8975")
-WIDTH = 460
+VERSION = "0.4.4"
+PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
+# Wide enough for most titles to fit on two lines in the search results.
+WIDTH = 580
 
-PINK = "#ff2a6d"
-CYAN = "#05d9e8"
-MAGENTA = "#d300c5"
-PURPLE = "#7b2fff"
-YELLOW = "#ffd319"
-ORANGE = "#ff901f"
-TEXT = "#f6ecff"
-MUTED = "#bfa3e0"
+# Skins. The colors below are the current skin's; set_skin() swaps them, and
+# everything paints from them, so a new skin is a new palette (plus, for a
+# different look, its own drawing where classic() is checked).
+SKINS = {
+    "retrowave": {
+        "label": "Retrowave",
+        "PINK": "#ff2a6d", "CYAN": "#05d9e8", "MAGENTA": "#d300c5", "PURPLE": "#7b2fff",
+        "YELLOW": "#ffd319", "ORANGE": "#ff901f", "TEXT": "#f6ecff", "MUTED": "#bfa3e0",
+    },
+    # A 90s desktop music player: brushed dark-steel case, bevelled grey
+    # buttons, a black display with green LCD text.
+    "classic": {
+        "label": "Clasic (anii ’90)",
+        "PINK": "#e8c547", "CYAN": "#3cff3c", "MAGENTA": "#b8962a", "PURPLE": "#5a5a80",
+        "YELLOW": "#ffe36b", "ORANGE": "#ff9b2f", "TEXT": "#22ff22", "MUTED": "#a7aac2",
+    },
+}
+SKIN = "retrowave"
+PINK = CYAN = MAGENTA = PURPLE = YELLOW = ORANGE = TEXT = MUTED = ""
+
+
+def set_skin(name):
+    global SKIN
+    SKIN = name if name in SKINS else "retrowave"
+    globals().update({k: v for k, v in SKINS[SKIN].items() if k.isupper()})
+
+
+def classic():
+    return SKIN == "classic"
+
+
+set_skin("retrowave")
+
+# The classic skin's metal and bevels.
+STEEL_HI, STEEL, STEEL_LO = "#c9c9d6", "#9d9db0", "#6c6c82"
+BEVEL_LIGHT, BEVEL_DARK = "#e9e9f2", "#22222c"
+ICON_DARK = "#15151c"
 
 # The account button's pages, opened in the YukiTube window. After signing in
 # Google comes back to YouTube.
@@ -86,15 +116,8 @@ def userscript_bytes():
 
 
 def remote_settings():
-    """~/.config/YukiTube/remote.conf (Windows: HKCU\\Software\\YukiTube\\remote).
-    The first time, carries over the settings NeonTube kept."""
-    s = QSettings("YukiTube", "remote")
-    if not s.allKeys():
-        old = QSettings("NeonTube", "NeonTube")
-        for k in old.allKeys():
-            s.setValue(k, old.value(k))
-        s.sync()
-    return s
+    """~/.config/YukiTube/remote.conf (Windows: HKCU\\Software\\YukiTube\\remote)."""
+    return QSettings("YukiTube", "remote")
 
 
 def fmt_time(t):
@@ -124,10 +147,46 @@ def qcolor(c, a=None):
     return col
 
 
+def draw_bevel(p, r, sunken=False, face=None, radius=1.5):
+    """A 90s bevelled face: light top-left, dark bottom-right (swapped when
+    pressed)."""
+    g = QLinearGradient(0, r.top(), 0, r.bottom())
+    if face is None:
+        g.setColorAt(0, QColor(STEEL_HI if not sunken else STEEL))
+        g.setColorAt(1, QColor(STEEL if not sunken else STEEL_HI))
+        p.setBrush(g)
+    else:
+        p.setBrush(QColor(face))
+    p.setPen(Qt.NoPen)
+    p.drawRoundedRect(r, radius, radius)
+    hi, lo = (BEVEL_DARK, BEVEL_LIGHT) if sunken else (BEVEL_LIGHT, BEVEL_DARK)
+    p.setBrush(Qt.NoBrush)
+    p.setPen(QPen(QColor(hi), 1))
+    p.drawLine(QPointF(r.left() + 0.5, r.bottom() - 1), QPointF(r.left() + 0.5, r.top() + 0.5))
+    p.drawLine(QPointF(r.left() + 0.5, r.top() + 0.5), QPointF(r.right() - 1, r.top() + 0.5))
+    p.setPen(QPen(QColor(lo), 1))
+    p.drawLine(QPointF(r.right() - 0.5, r.top() + 1), QPointF(r.right() - 0.5, r.bottom() - 0.5))
+    p.drawLine(QPointF(r.right() - 0.5, r.bottom() - 0.5), QPointF(r.left() + 1, r.bottom() - 0.5))
+
+
+def draw_inset(p, r, fill="#000000"):
+    """A sunken black display, like an LCD set into the case."""
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(fill))
+    p.drawRect(r)
+    p.setBrush(Qt.NoBrush)
+    p.setPen(QPen(QColor(BEVEL_DARK), 1))
+    p.drawLine(QPointF(r.left(), r.bottom()), QPointF(r.left(), r.top()))
+    p.drawLine(QPointF(r.left(), r.top()), QPointF(r.right(), r.top()))
+    p.setPen(QPen(QColor("#8a8aa0"), 1))
+    p.drawLine(QPointF(r.right(), r.top()), QPointF(r.right(), r.bottom()))
+    p.drawLine(QPointF(r.right(), r.bottom()), QPointF(r.left(), r.bottom()))
+
+
 # ======================================================================= widgets
 class IconButton(QAbstractButton):
     def __init__(self, icon, size=30, icon_size=18, tip="", checkable=False, parent=None,
-                 color=TEXT, hover=CYAN, checked_color=PINK):
+                 color=None, hover=None, checked_color=None):
         super().__init__(parent)
         self._icon = icon
         self._isz = icon_size
@@ -160,6 +219,16 @@ class IconButton(QAbstractButton):
         c = QPointF(w / 2, h / 2)
         if not self.isEnabled():
             p.setOpacity(0.35)
+        if classic():
+            r = QRectF(1, 1, w - 2, h - 2)
+            down = self.isDown() or self.isChecked()
+            draw_bevel(p, r, sunken=down, face="#d8d8e4" if self._hover and not down else None)
+            col = "#0f6f0f" if self.isChecked() else ICON_DARK
+            isz = self._isz - 2
+            pm = icons.pixmap(self._icon, col, isz, self.devicePixelRatioF())
+            off = 1 if down else 0
+            p.drawPixmap(QPointF((w - isz) / 2 + off, (h - isz) / 2 + off), pm)
+            return
         if self.isEnabled() and (self._hover or self.isDown()):
             g = QRadialGradient(c, w / 2)
             g.setColorAt(0, qcolor(CYAN, 0.32 if self.isDown() else 0.22))
@@ -167,16 +236,16 @@ class IconButton(QAbstractButton):
             p.setPen(Qt.NoPen)
             p.setBrush(g)
             p.drawEllipse(c, w / 2, h / 2)
-        col = self.color
+        col = self.color or TEXT
         if self.isChecked():
-            col = self.checked_color
+            col = self.checked_color or PINK
         elif self._hover and self.isEnabled():
-            col = self.hover_color
+            col = self.hover_color or CYAN
         pm = icons.pixmap(self._icon, col, self._isz, self.devicePixelRatioF())
         p.drawPixmap(QPointF((w - self._isz) / 2, (h - self._isz) / 2), pm)
         if self.isChecked():
             p.setPen(Qt.NoPen)
-            p.setBrush(qcolor(self.checked_color))
+            p.setBrush(qcolor(self.checked_color or PINK))
             p.drawEllipse(QPointF(w / 2, h - 3), 1.6, 1.6)
 
 
@@ -191,6 +260,15 @@ class PlayButton(IconButton):
         c = QPointF(w / 2, w / 2)
         if not self.isEnabled():
             p.setOpacity(0.45)
+        if classic():
+            r = QRectF(5, 7, w - 10, w - 14)
+            draw_bevel(p, r, sunken=self.isDown(), face="#d8d8e4" if self._hover and not self.isDown() else None,
+                       radius=2)
+            isz = self._isz - 4
+            pm = icons.pixmap(self._icon, ICON_DARK, isz, self.devicePixelRatioF())
+            off = 1 if self.isDown() else 0
+            p.drawPixmap(QPointF((w - isz) / 2 + off + (1 if self._icon == "play" else 0), (w - isz) / 2 + off), pm)
+            return
         glow = QRadialGradient(c, w / 2)
         glow.setColorAt(0.55, qcolor(PINK, 0.55 if self._hover else 0.35))
         glow.setColorAt(1, qcolor(PINK, 0))
@@ -328,6 +406,20 @@ class NeonSlider(QWidget):
         m = self._knob + 2
         w = self.width() - 2 * m
         cy = self.height() / 2
+        if classic():
+            th = 6
+            groove = QRectF(m, cy - th / 2, w, th)
+            draw_inset(p, groove, "#0b0b10")
+            x = m + w * self._v
+            if self._v > 0:
+                g = QLinearGradient(m, 0, m + w, 0)
+                g.setColorAt(0, QColor("#1fa81f"))
+                g.setColorAt(0.7, QColor(YELLOW))
+                g.setColorAt(1, QColor(ORANGE))
+                p.fillRect(QRectF(m + 1, cy - th / 2 + 1, x - m - 1, th - 2), g)
+            kw, kh = 9, min(self.height() - 2, 14)
+            draw_bevel(p, QRectF(x - kw / 2, cy - kh / 2, kw, kh), sunken=self._drag)
+            return
         th = 5 if (self._hover or self._drag) else 4
         groove = QRectF(m, cy - th / 2, w, th)
         p.setPen(Qt.NoPen)
@@ -371,6 +463,14 @@ class Marquee(QWidget):
 
     def text(self):
         return self._text
+
+    def restyle(self, font, color, glow):
+        self.setFont(font)
+        self.setFixedHeight(QFontMetrics(font).height() + 4)
+        self._color = QColor(color)
+        self._glow = glow
+        self._sync()
+        self.update()
 
     def set_text(self, t):
         if t == self._text:
@@ -425,7 +525,13 @@ class Marquee(QWidget):
         p.setPen(self._color)
         for x in xs:
             p.drawText(QPointF(x, y), self._text)
-        if scrolling:  # fade the edges
+        if scrolling and classic():  # fade into the black display
+            for x0, x1 in ((0, 14), (self.width(), self.width() - 14)):
+                g = QLinearGradient(x0, 0, x1, 0)
+                g.setColorAt(0, QColor(0, 0, 0, 255))
+                g.setColorAt(1, QColor(0, 0, 0, 0))
+                p.fillRect(QRectF(min(x0, x1), 0, 14, self.height()), g)
+        elif scrolling:  # fade the edges
             p.setCompositionMode(QPainter.CompositionMode_DestinationOut)
             for x0, x1 in ((0, 14), (self.width(), self.width() - 14)):
                 g = QLinearGradient(x0, 0, x1, 0)
@@ -471,7 +577,7 @@ class Thumb(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         r = QRectF(1, 1, self.width() - 2, self.height() - 2)
         path = QPainterPath()
-        path.addRoundedRect(r, 8, 8)
+        path.addRoundedRect(r, 1 if classic() else 8, 1 if classic() else 8)
         p.save()
         p.setClipPath(path)
         if self._pm and not self._pm.isNull():
@@ -481,12 +587,16 @@ class Thumb(QWidget):
             p.drawPixmap(QRectF(r.center().x() - sw / 2, r.center().y() - sh / 2, sw, sh), src,
                          QRectF(src.rect()))
         else:
-            p.fillRect(r, QColor(15, 3, 35, 200))
+            p.fillRect(r, QColor(0, 0, 0) if classic() else QColor(15, 3, 35, 200))
             lp = logo_pixmap(int(r.height() * 0.7 * self.devicePixelRatioF()))
             lp.setDevicePixelRatio(self.devicePixelRatioF())
             s = r.height() * 0.7
             p.drawPixmap(QRectF(r.center().x() - s / 2, r.center().y() - s / 2, s, s), lp, QRectF(lp.rect()))
         p.restore()
+        if classic():
+            p.setRenderHint(QPainter.Antialiasing, False)
+            draw_inset(p, QRectF(0, 0, self.width() - 1, self.height() - 1), QColor(0, 0, 0, 0))
+            return
         g = QLinearGradient(0, 0, self.width(), self.height())
         g.setColorAt(0, QColor(PINK))
         g.setColorAt(1, QColor(CYAN))
@@ -513,6 +623,13 @@ class Logo(QWidget):
         y = (self.height() + fm.ascent() - fm.descent()) / 2
         path = QPainterPath()
         path.addText(QPointF(26, y), self.font(), "YUKITUBE")
+        if classic():
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(BEVEL_DARK))
+            p.drawPath(path.translated(1, 1))
+            p.setBrush(QColor("#e6e6f0"))
+            p.drawPath(path)
+            return
         p.setPen(QPen(qcolor(PINK, 0.35), 3))
         p.drawPath(path)
         g = QLinearGradient(26, 0, self.width(), 0)
@@ -547,7 +664,7 @@ class StatusDot(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         c = QPointF(6, 6)
-        col = QColor("#39ff9f") if self._on else QColor(PINK)
+        col = QColor("#39ff9f") if self._on else QColor("#ff3b3b" if classic() else PINK)
         a = 1.0 if self._on else 0.45 + 0.55 * (0.5 + 0.5 * math.sin(self._phase))
         g = QRadialGradient(c, 6)
         g.setColorAt(0, qcolor(col.name(), 0.7 * a))
@@ -626,7 +743,7 @@ class ResultDelegate(QStyledItemDelegate):
             sw, sh = pm.width() * sc, pm.height() * sc
             p.drawPixmap(QRectF(tr.center().x() - sw / 2, tr.center().y() - sh / 2, sw, sh), pm, QRectF(pm.rect()))
         else:
-            p.fillRect(tr, QColor(30, 6, 60, 200))
+            p.fillRect(tr, QColor(28, 28, 38) if classic() else QColor(30, 6, 60, 200))
             self.win.request_thumb(d.get("id", ""), lambda *_: self.win.results_view.viewport().update())
         dur = d.get("duration", "")
         if dur:
@@ -664,7 +781,34 @@ class ResultDelegate(QStyledItemDelegate):
 
 
 # ===================================================================== window
-SS = f"""
+def stylesheet():
+    """The Qt stylesheet for the current skin."""
+    if classic():
+        return f"""
+QWidget {{ color: {TEXT}; }}
+QToolTip {{ background: #ffffe1; color: #000000; border: 1px solid #000000; padding: 3px 5px; }}
+QLineEdit#search {{
+  background: #000000; border: 2px inset #6c6c82; border-radius: 0; padding: 4px 10px 4px 32px;
+  color: {TEXT}; selection-background-color: #1fa81f; selection-color: #000000; font-size: 10pt;
+}}
+QLineEdit#search:focus {{ border: 2px inset {STEEL_HI}; }}
+QLabel#time {{ color: #e6e6f0; }}
+QLabel#channel {{ color: {CYAN}; }}
+QLabel#hint {{ color: #e6e6f0; }}
+QLabel#badge {{ color: #000000; background: {YELLOW}; border-radius: 0; padding: 0 5px; font-weight: bold; }}
+QListView {{ background: transparent; border: none; outline: none; }}
+QScrollBar:vertical {{ background: #2a2a36; width: 10px; margin: 0; }}
+QScrollBar::handle:vertical {{ background: {STEEL}; border: 1px outset {STEEL_HI}; min-height: 24px; }}
+QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {{ height: 0; background: none; }}
+QMenu {{ background: #d4d0c8; border: 2px outset #f0f0f0; padding: 2px; color: #000000; }}
+QMenu::item {{ padding: 4px 22px 4px 20px; }}
+QMenu::item:selected {{ background: #0a246a; color: #ffffff; }}
+QMenu::item:disabled {{ color: #808080; }}
+QMenu::separator {{ height: 1px; background: #808080; margin: 3px 4px; }}
+QMenu::indicator {{ width: 8px; height: 8px; left: 6px; }}
+QMenu::indicator:checked {{ background: #000000; }}
+"""
+    return f"""
 QWidget {{ color: {TEXT}; }}
 QToolTip {{ background: #1a0533; color: {TEXT}; border: 1px solid {PINK}; padding: 4px 6px; border-radius: 4px; }}
 QLineEdit#search {{
@@ -736,6 +880,11 @@ class Chip(QAbstractButton):
         if not self.isEnabled():
             p.setOpacity(0.4)
         on = self.isChecked()
+        if classic():
+            draw_bevel(p, r, sunken=on or self.isDown(), face="#d8d8e4" if self._hover else None)
+            p.setPen(QColor(ICON_DARK))
+            p.drawText(r, Qt.AlignCenter, self.text())
+            return
         p.setBrush(qcolor(PINK, 0.65 if on else 0.15))
         p.setPen(QPen(QColor(CYAN) if self._hover else qcolor(PINK, 0.6), 1))
         p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
@@ -751,9 +900,10 @@ class Player(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(logo_icon())
-        self.setStyleSheet(SS)
         self.settings = remote_settings()
-        self.opacity = float(self.settings.value("opacity", 0.72))
+        set_skin(str(self.settings.value("skin", "retrowave")))
+        self.setStyleSheet(stylesheet())
+        self.opacity = float(self.settings.value("opacity", 0.55))
         self.anim_on = self.settings.value("anim", "true") in (True, "true")
         self.mini = self.settings.value("mini", "false") in (True, "true")
         self.on_top = self.settings.value("ontop", "true") in (True, "true")
@@ -778,19 +928,12 @@ class Player(QWidget):
         self.ws.userscript = userscript_bytes()
         self.ws.ping = {"app": "yukitube-remote", "version": VERSION, "tabs": 0}
         self.ws.message.connect(self.on_message)
-        self.old_bridge_seen = 0.0
-        self.ws.old_bridge.connect(lambda: setattr(self, "old_bridge_seen", time.monotonic()))
         self.ws.disconnected.connect(self.on_disconnect)
         self.ws.open_request.connect(self.handle_open)
         self.host = None       # FirefoxHost, when the remote runs YukiTube's Firefox
 
         self._build()
-        # The window is resized by its edges (see mousePressEvent): any width
-        # from the original one up, and any height while the search is open.
-        self.setMouseTracking(True)
-        for w in self.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
-            w.installEventFilter(self)
-        self.resize(max(WIDTH + 2 * self.PANEL_MARGIN, int(self.settings.value("width", 0) or 0)), 100)
+        self.apply_skin(SKIN, save=False)
         self._apply_mini()
         self.setWindowFlag(Qt.WindowStaysOnTopHint, self.on_top)
 
@@ -806,7 +949,6 @@ class Player(QWidget):
         self.vol_timer = QTimer(self)
         self.vol_timer.setSingleShot(True)
         self.vol_timer.timeout.connect(self._send_volume)
-        self.docker = Docker(self)
 
         self.refresh_ui()
 
@@ -837,8 +979,8 @@ class Player(QWidget):
         self.btn_account.setToolTip("Conectează contul Google")
         self.btn_account.clicked.connect(self.account_menu)
         hdr.addWidget(self.btn_account)
-        self.btn_dock = IconButton("dock", 26, 16, "Lipește telecomanda de fereastra YouTube  (D)", checkable=True)
-        self.btn_dock.toggled.connect(self.set_docked)
+        self.btn_skin = IconButton("palette", 26, 16, "Schimbă skin-ul")
+        self.btn_skin.clicked.connect(lambda: self.skin_menu(self.btn_skin.mapToGlobal(QPoint(0, 26))))
         self.btn_search = IconButton("search", 26, 16, "Caută  (Ctrl+F)", checkable=True)
         self.btn_search.toggled.connect(self.toggle_search)
         self.btn_mini = IconButton("collapse", 26, 16, "Mod compact")
@@ -849,7 +991,7 @@ class Player(QWidget):
         self.btn_minw.clicked.connect(self.showMinimized)
         self.btn_close = IconButton("close", 26, 15, "Închide", hover=PINK)
         self.btn_close.clicked.connect(self.close)
-        for b in (self.btn_dock, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
+        for b in (self.btn_skin, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
             hdr.addWidget(b)
         root.addLayout(hdr)
 
@@ -895,12 +1037,14 @@ class Player(QWidget):
         self.info_w = QWidget()
         self.info_w.setLayout(info)
         info.setContentsMargins(0, 2, 0, 0)
+        self.info_w.setFixedWidth(WIDTH - 24)
         root.addWidget(self.info_w)
 
         # mini title (only in compact mode)
         fmini = QFont(FONT_UI, 9)
         fmini.setWeight(QFont.DemiBold)
         self.mini_title = Marquee(fmini, TEXT, glow=PINK)
+        self.mini_title.setFixedWidth(WIDTH - 24)
         root.addWidget(self.mini_title)
 
         # seek
@@ -926,6 +1070,7 @@ class Player(QWidget):
         self.seek_w = QWidget()
         self.seek_w.setLayout(seek)
         seek.setContentsMargins(0, 0, 0, 0)
+        self.seek_w.setFixedWidth(WIDTH - 24)
         root.addWidget(self.seek_w)
 
         # controls
@@ -965,6 +1110,7 @@ class Player(QWidget):
         self.ctl_w = QWidget()
         self.ctl_w.setLayout(ctl)
         ctl.setContentsMargins(0, 0, 0, 0)
+        self.ctl_w.setFixedWidth(WIDTH - 24)
         root.addWidget(self.ctl_w)
 
         # search panel
@@ -996,8 +1142,7 @@ class Player(QWidget):
         self.results_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.results_view.verticalScrollBar().setSingleStep(16)
         self.results_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.results_view.setMinimumHeight(ResultDelegate.H * 2 + 4)
-        self.results_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.results_view.setFixedHeight(ResultDelegate.H * 5 + 4)
         self.results_view.setCursor(Qt.PointingHandCursor)
         self.results_view.clicked.connect(self.on_result_clicked)
         self.results_view.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1005,8 +1150,8 @@ class Player(QWidget):
         self.results_view.viewport().installEventFilter(self)
         sp.addWidget(self.results_view)
         self.search_panel.hide()
-        # A taller window means more results, not a taller player.
-        root.addWidget(self.search_panel, 1)
+        self.search_panel.setFixedWidth(WIDTH - 24)
+        root.addWidget(self.search_panel)
 
         # tray
         self.tray = None
@@ -1014,7 +1159,7 @@ class Player(QWidget):
             self.tray = QSystemTrayIcon(logo_icon(), self)
             self.tray.setToolTip(APP_NAME)
             tm = QMenu()
-            tm.setStyleSheet(SS)
+            tm.setStyleSheet(stylesheet())
             tm.addAction("Play / Pauză", self.toggle_play)
             tm.addAction("Următorul", lambda: self.cmd("next"))
             tm.addAction("Anterior", lambda: self.cmd("prev"))
@@ -1030,6 +1175,9 @@ class Player(QWidget):
 
     # ------------------------------------------------------------- painting
     def paintEvent(self, e):
+        if classic():
+            self._paint_classic()
+            return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         m = self.PANEL_MARGIN
@@ -1134,79 +1282,82 @@ class Player(QWidget):
         p.setBrush(Qt.NoBrush)
         p.drawPath(panel)
 
+    def _paint_classic(self):
+        """The classic skin: a dark brushed-steel case, a ridged title strip
+        behind the header, and black LCD displays for the song and the
+        search results."""
+        p = QPainter(self)
+        m = self.PANEL_MARGIN
+        r = QRectF(self.rect()).adjusted(m, m, -m, -m)
+        alpha = int(255 * max(0.35, self.opacity))
+        case = QLinearGradient(0, r.top(), 0, r.bottom())
+        case.setColorAt(0, QColor(70, 70, 94, alpha))
+        case.setColorAt(0.5, QColor(46, 46, 64, alpha))
+        case.setColorAt(1, QColor(30, 30, 42, alpha))
+        p.fillRect(r, case)
+        # brushed metal: faint horizontal hairlines
+        p.setPen(QPen(QColor(255, 255, 255, 10), 1))
+        y = r.top() + 1
+        while y < r.bottom():
+            p.drawLine(QPointF(r.left(), y), QPointF(r.right(), y))
+            y += 2
+        # outer bevel, twice, like the old cases
+        p.setBrush(Qt.NoBrush)
+        for inset, hi, lo in ((0, "#9a9ab4", "#08080c"), (1, "#5c5c78", "#14141c")):
+            rr = r.adjusted(inset, inset, -inset - 1, -inset - 1)
+            p.setPen(QPen(QColor(hi), 1))
+            p.drawLine(rr.bottomLeft(), rr.topLeft())
+            p.drawLine(rr.topLeft(), rr.topRight())
+            p.setPen(QPen(QColor(lo), 1))
+            p.drawLine(rr.topRight(), rr.bottomRight())
+            p.drawLine(rr.bottomRight(), rr.bottomLeft())
+
+        # title strip with ridges, behind the header row
+        hb = self.logo.geometry().bottom() + 4
+        strip = QRectF(r.left() + 3, r.top() + 3, r.width() - 6, hb - r.top() - 3)
+        sg = QLinearGradient(0, strip.top(), 0, strip.bottom())
+        sg.setColorAt(0, QColor(36, 36, 52, alpha))
+        sg.setColorAt(1, QColor(20, 20, 30, alpha))
+        p.fillRect(strip, sg)
+        x0 = self.status.geometry().left() + self.status.fontMetrics().horizontalAdvance(self.status.text()) + 10
+        x1 = min(w.geometry().left() for w in (self.btn_tab, self.btn_account) if w.isVisible()) - 8
+        if x1 - x0 > 12:
+            cy = strip.center().y()
+            for k in range(-2, 3):
+                yy = cy + k * 3
+                p.setPen(QPen(QColor("#8f8fae"), 1))
+                p.drawLine(QPointF(x0, yy), QPointF(x1, yy))
+                p.setPen(QPen(QColor("#101018"), 1))
+                p.drawLine(QPointF(x0, yy + 1), QPointF(x1, yy + 1))
+
+        # the LCD: the song (or the one-line title in compact mode)
+        lcd_w = self.info_w if self.info_w.isVisible() else self.mini_title
+        lcd = QRectF(lcd_w.geometry()).adjusted(-6, -4, 6, 4)
+        draw_inset(p, lcd)
+        p.setPen(QPen(QColor(0, 255, 0, 14), 1))  # faint LCD lines
+        y = lcd.top() + 2
+        while y < lcd.bottom() - 1:
+            p.drawLine(QPointF(lcd.left() + 1, y), QPointF(lcd.right() - 1, y))
+            y += 3
+
+        # the results get a display of their own
+        if self.search_panel.isVisible():
+            rv = self.results_view.geometry().translated(self.search_panel.pos())
+            draw_inset(p, QRectF(rv).adjusted(-3, -3, 3, 3))
+
     def resizeEvent(self, e):
         self._measure()
         super().resizeEvent(e)
 
     def _fit(self):
-        """Size limits from the layout: the width never below the original
-        one; the height fixed to the player alone, or free (down to two
-        results) while the search is open, where the height last chosen for
-        it comes back."""
+        """The window's size is fixed: the player, plus the results while the
+        search is open."""
         lay = self.layout()
         lay.invalidate()
         lay.activate()
-        need = lay.totalMinimumSize()
-        minw = max(WIDTH + 2 * self.PANEL_MARGIN, need.width())
-        minh = need.height()
-        if self.search_panel.isVisible():
-            h = int(self.settings.value("search_h", 0) or 0) or minh + ResultDelegate.H * 3
-            self.setMinimumSize(minw, minh)
-            self.setMaximumSize(16777215, 16777215)
-        else:
-            h = minh
-            self.setMinimumSize(minw, minh)
-            self.setMaximumSize(16777215, minh)
-        self.resize(max(self.width(), minw), max(h, minh))
+        self.setFixedSize(WIDTH + 2 * self.PANEL_MARGIN, lay.totalMinimumSize().height())
         self._measure()
         self.update()
-
-    def save_size(self):
-        self.settings.setValue("width", self.width())
-        if self.search_panel.isVisible():
-            self.settings.setValue("search_h", self.height())
-
-    GRIP = 6  # px of the panel's edge, beyond the glow margin, that resize
-
-    def _edges(self, pos):
-        g = self.PANEL_MARGIN + self.GRIP
-        edges = Qt.Edge(0)
-        if pos.x() < g:
-            edges |= Qt.LeftEdge
-        elif pos.x() >= self.width() - g:
-            edges |= Qt.RightEdge
-        if self.minimumHeight() != self.maximumHeight():
-            if pos.y() < g:
-                edges |= Qt.TopEdge
-            elif pos.y() >= self.height() - g:
-                edges |= Qt.BottomEdge
-        return edges
-
-    @staticmethod
-    def _edge_cursor(edges):
-        horiz = edges & (Qt.LeftEdge | Qt.RightEdge)
-        vert = edges & (Qt.TopEdge | Qt.BottomEdge)
-        if horiz and vert:
-            fdiag = edges in (Qt.LeftEdge | Qt.TopEdge, Qt.RightEdge | Qt.BottomEdge)
-            return Qt.SizeFDiagCursor if fdiag else Qt.SizeBDiagCursor
-        if horiz:
-            return Qt.SizeHorCursor
-        if vert:
-            return Qt.SizeVerCursor
-        return None
-
-    def mouseMoveEvent(self, e):
-        if not e.buttons():
-            cur = self._edge_cursor(self._edges(e.position().toPoint()))
-            if cur is None:
-                self.unsetCursor()
-            else:
-                self.setCursor(cur)
-        super().mouseMoveEvent(e)
-
-    def leaveEvent(self, e):
-        self.unsetCursor()
-        super().leaveEvent(e)
 
     def _measure(self):
         # height of the "player" part (everything above the search panel)
@@ -1214,6 +1365,8 @@ class Player(QWidget):
         self.player_h = g.bottom() + 8 - self.PANEL_MARGIN
 
     def _anim(self):
+        if classic():
+            return
         playing = self.cur_state and not self.cur_state.get("paused", True)
         if self.anim_on and playing and self.isVisible() and not self.isMinimized():
             self.grid_phase = (self.grid_phase + 0.04) % 1.0
@@ -1223,12 +1376,6 @@ class Player(QWidget):
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             wh = self.windowHandle()
-            edges = self._edges(e.position().toPoint())
-            if edges and wh is not None and wh.startSystemResize(edges):
-                return
-            # Moving the remote by hand takes it off the YouTube window.
-            if self.btn_dock.isChecked():
-                self.btn_dock.setChecked(False)
             if wh is not None:
                 wh.startSystemMove()
         elif e.button() == Qt.RightButton:
@@ -1271,6 +1418,44 @@ class Player(QWidget):
             w.setVisible(not self.mini)
         self._fit()
 
+    # --------------------------------------------------------------- skins
+    def skin_menu(self, pos):
+        m = QMenu(self)
+        self._add_skin_actions(m)
+        m.exec(pos)
+
+    def _add_skin_actions(self, m):
+        for key, sk in SKINS.items():
+            a = m.addAction(sk["label"])
+            a.setCheckable(True)
+            a.setChecked(key == SKIN)
+            a.triggered.connect(lambda _=False, k=key: self.apply_skin(k))
+
+    def apply_skin(self, name, save=True):
+        set_skin(name)
+        if save:
+            self.settings.setValue("skin", SKIN)
+        ss = stylesheet()
+        self.setStyleSheet(ss)
+        if self.tray:
+            self._tray_menu.setStyleSheet(ss)
+        if classic():
+            ft = QFont(FONT_MONO, 12)
+            fmini = QFont(FONT_MONO, 10)
+            glow = None
+        else:
+            ft = QFont(FONT_UI, 11)
+            ft.setWeight(QFont.Bold)
+            fmini = QFont(FONT_UI, 9)
+            fmini.setWeight(QFont.DemiBold)
+            glow = PINK
+        self.title.restyle(ft, TEXT, glow)
+        self.mini_title.restyle(fmini, TEXT, glow)
+        self._search_icon.setPixmap(icons.pixmap("search", PINK, 16, self.devicePixelRatioF()))
+        for w in self.findChildren(QWidget):
+            w.update()
+        self._fit()
+
     def set_on_top(self, on):
         self.on_top = on
         self.settings.setValue("ontop", on)
@@ -1280,8 +1465,6 @@ class Player(QWidget):
             self.show()
 
     def toggle_search(self, on):
-        if not on:
-            self.save_size()
         self.search_panel.setVisible(on)
         if on:
             self.search_edit.setFocus()
@@ -1298,6 +1481,8 @@ class Player(QWidget):
         a.setCheckable(True)
         a.setChecked(self.mini)
         a.triggered.connect(self.toggle_mini)
+        sm = m.addMenu("Skin")
+        self._add_skin_actions(sm)
         a = m.addAction("Animație grilă")
         a.setCheckable(True)
         a.setChecked(self.anim_on)
@@ -1368,8 +1553,6 @@ class Player(QWidget):
             self.cmd("loop", self.btn_loop.isChecked())
         elif k in (Qt.Key_S, Qt.Key_MediaStop):
             self.stop()
-        elif k == Qt.Key_D:
-            self.btn_dock.toggle()
         elif k in (Qt.Key_N, Qt.Key_MediaNext):
             self.cmd("next")
         elif k in (Qt.Key_P, Qt.Key_MediaPrevious):
@@ -1378,9 +1561,6 @@ class Player(QWidget):
             super().keyPressEvent(e)
 
     def eventFilter(self, obj, ev):
-        # Leaving the resize edge for a child widget: back to the arrow.
-        if ev.type() == ev.Type.Enter and obj.parent() is self:
-            self.unsetCursor()
         if obj is self.results_view.viewport() and ev.type() == ev.Type.MouseButtonRelease:
             if ev.button() == Qt.MiddleButton:
                 idx = self.results_view.indexAt(ev.position().toPoint())
@@ -1391,7 +1571,6 @@ class Player(QWidget):
 
     def closeEvent(self, e):
         self.settings.setValue("pos", self.pos())
-        self.save_size()
         QApplication.quit()
 
     # ----------------------------------------------------------- networking
@@ -1471,17 +1650,6 @@ class Player(QWidget):
             self.cur_state["time"] = 0
             self.btn_play.set_icon("play")
             self.hold_time_until = time.monotonic() + 1.5
-
-    def set_docked(self, on):
-        if on and not self.docker.available():
-            self.btn_dock.setChecked(False)
-            QMessageBox.information(
-                self, APP_NAME,
-                "Lipirea de fereastra YouTube merge pe Hyprland și pe Windows.\n"
-                "Pe acest desktop telecomanda nu poate afla unde e fereastra YouTube.")
-            return
-        self.settings.setValue("docked", on)
-        self.docker.set_enabled(on)
 
     def toggle_play(self):
         if self.cmd("toggle"):
@@ -1902,11 +2070,8 @@ class Player(QWidget):
         else:
             self.title.set_text("Niciun tab YouTube conectat")
             self.mini_title.set_text("Niciun tab YouTube conectat")
-            if now - self.old_bridge_seen < 10:
-                self.channel.setText("Punte veche NeonTube: meniul ⋮ → Conectează YukiTube")
-            else:
-                self.channel.setText("Instalează puntea YukiTube (meniul ⋮)" if not self.bridges
-                                     else "Deschide YouTube în browser")
+            self.channel.setText("Instalează puntea YukiTube (meniul ⋮)" if not self.bridges
+                                 else "Deschide YouTube în browser")
 
         vid = st.get("id")
         if has_video and vid:
@@ -1984,8 +2149,8 @@ def forward_to_running(arg):
     import json
     import urllib.request
     req = urllib.request.Request(
-        f"http://127.0.0.1:{PORT}/nt/open", data=json.dumps({"arg": arg}).encode(),
-        headers={"Content-Type": "application/json", "X-NeonTube": "1"}, method="POST")
+        f"http://127.0.0.1:{PORT}/yt/open", data=json.dumps({"arg": arg}).encode(),
+        headers={"Content-Type": "application/json", "X-YukiTube": "1"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=3) as r:
             return r.status == 200
@@ -2015,7 +2180,6 @@ def main():
     app.setFont(f)
 
     w = Player()
-    app.aboutToQuit.connect(w.save_size)
     if not w.ws.listen(PORT):
         # Started by the YukiTube launcher while one is already running: the
         # running one takes the link or search (or just comes to the front).
@@ -2030,9 +2194,6 @@ def main():
         scr = QGuiApplication.screenAt(pos)
         if scr is not None:
             w.move(pos)
-    # Shown at a fixed size, so window managers that tile (Hyprland) float
-    # it from the start; then the size limits are loosened for resizing.
-    w.setFixedSize(w.size())
     w.show()
     if opts["firefox"] and opts["profile"]:
         w.host_firefox(opts["firefox"], opts["profile"], opts["arg"])
@@ -2040,15 +2201,11 @@ def main():
     elif opts["arg"]:
         QTimer.singleShot(0, lambda: w.handle_open(opts["arg"]))
 
-    def loosen():
-        w.docker.float_self()
-        w._fit()
-    QTimer.singleShot(400, loosen)
-    if w.settings.value("docked", "false") in (True, "true") and w.docker.available():
-        QTimer.singleShot(600, lambda: w.btn_dock.setChecked(True))
-    if os.environ.get("NEONTUBE_SCREENSHOT"):
-        QTimer.singleShot(int(os.environ.get("NEONTUBE_SCREENSHOT_DELAY", "800")),
-                          lambda: (w.grab().save(os.environ["NEONTUBE_SCREENSHOT"]), app.quit()))
+    # Hyprland would tile it like any other window; it floats.
+    QTimer.singleShot(400, hyprland.float_window)
+    if os.environ.get("YUKITUBE_SCREENSHOT"):
+        QTimer.singleShot(int(os.environ.get("YUKITUBE_SCREENSHOT_DELAY", "800")),
+                          lambda: (w.grab().save(os.environ["YUKITUBE_SCREENSHOT"]), app.quit()))
     return app.exec()
 
 

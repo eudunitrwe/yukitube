@@ -1,12 +1,14 @@
-"""Prepares YukiTube's Firefox profile on the first launch, out of sight.
+"""Prepares YukiTube's Firefox profile, out of sight.
 
 The remote talks to YouTube through the "YukiTube Bridge" userscript, which
 lives in Violentmonkey. Installing a userscript normally means a Violentmonkey
-tab with an Install button. Instead, the launcher calls this once, before it
-opens the YukiTube window: Firefox starts headless (no window at all) on the
-profile with Marionette, its automation interface, switched on; the script
-hands the userscript straight to Violentmonkey from one of Violentmonkey's
-own pages; and Firefox quits. Only the standard library is used.
+tab with an Install button. Instead, the remote calls this before it starts
+YouTube, on the first launch and whenever the bridge has a new version:
+Firefox starts headless (no window at all) on the profile with Marionette,
+its automation interface, switched on; the script hands the userscript
+straight to Violentmonkey from one of Violentmonkey's own pages, removes
+bridges left from older versions, and Firefox quits. Only the standard
+library is used.
 
     yukitube-remote --prepare-profile <firefox> <profile>
 """
@@ -20,8 +22,24 @@ import time
 VIOLENTMONKEY = "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}"
 PORT = os.environ.get("YUKITUBE_PORT") or "8975"
 USERSCRIPT_URL = f"http://127.0.0.1:{PORT}/yukitube.user.js"
-MARKER = ".yukitube-bridge-installed"
+MARKER = ".yukitube-bridge-installed"  # holds the installed bridge's version
 TIMEOUT = 60
+
+
+def bridge_version(code):
+    for line in code.splitlines():
+        if line.startswith("// @version"):
+            return line.split()[-1]
+    return ""
+
+
+def is_current(profile, code):
+    """True when the profile already has this version of the bridge."""
+    try:
+        with open(os.path.join(profile, MARKER)) as f:
+            return f.readline().strip() == bridge_version(code)
+    except OSError:
+        return False
 
 
 class Marionette:
@@ -121,6 +139,30 @@ page.browser.runtime.sendMessage(msg).then(
   (e) => done({ ok: false, error: String(e && e.message || e) }));
 """
 
+# Bridges from older versions (another namespace, or the old name) go: two
+# bridges in one tab would compete for it.
+_CLEANUP_JS = """
+const [keepNamespace, done] = arguments;
+const page = window.wrappedJSObject || window;
+const send = (cmd, data) => {
+  let msg = { cmd, data };
+  if (typeof cloneInto === "function") msg = cloneInto(msg, page);
+  return page.browser.runtime.sendMessage(msg).then((r) => r === undefined ? null : JSON.parse(page.JSON.stringify(r)));
+};
+(async () => {
+  const data = await send("GetData", {});
+  const list = Object.values(data || {}).find((v) => Array.isArray(v) && v.length && v[0] && v[0].props) || [];
+  const old = list.filter((s) => {
+    const m = s.meta || {};
+    const name = String(m.name || "");
+    return (m.namespace !== keepNamespace && /YukiTube Bridge/i.test(name)) || /neontube/i.test(name + " " + (m.namespace || ""));
+  }).map((s) => s.props.id);
+  for (const id of old) await send("MarkRemoved", { id, removed: true });
+  if (old.length) await send("RemoveScripts", old);
+  done({ ok: true, removed: old.length });
+})().catch((e) => done({ ok: false, error: String(e && e.message || e) }));
+"""
+
 _HOST_JS = """
 const p = WebExtensionPolicy.getByID(arguments[0]);
 return p ? p.mozExtensionHostname : null;
@@ -130,7 +172,7 @@ return p ? p.mozExtensionHostname : null;
 def install_bridge(firefox, profile, code, log=print):
     """Installs the userscript into Violentmonkey in `profile`. Returns True
     when it is installed (or already was), False when it could not be."""
-    if os.path.exists(os.path.join(profile, MARKER)):
+    if is_current(profile, code):
         return True
     if profile_in_use(profile):
         log("profile in use; skipping")
@@ -180,13 +222,17 @@ def install_bridge(firefox, profile, code, log=print):
         if last is not None:
             raise RuntimeError(f"Violentmonkey refused the script: {last}")
         log("bridge installed")
+        namespace = next((ln.split()[-1] for ln in code.splitlines() if ln.startswith("// @namespace")), "")
+        r = mn.call("WebDriver:ExecuteAsyncScript",
+                    {"script": _CLEANUP_JS, "args": [namespace], "scriptTimeout": 15000})
+        log(f"old bridges removed: {(r or {}).get('removed', (r or {}).get('error'))}")
         try:
             mn.call("Marionette:Quit", {"flags": ["eAttemptQuit"]})
         except (RuntimeError, OSError):
             pass
         proc.wait(timeout=max(5, deadline - time.monotonic()))
         with open(os.path.join(profile, MARKER), "w") as f:
-            f.write(time.strftime("%Y-%m-%d %H:%M:%S\n"))
+            f.write(bridge_version(code) + "\n" + time.strftime("%Y-%m-%d %H:%M:%S\n"))
         return True
     except Exception as ex:  # noqa: BLE001 - never keep YukiTube from opening
         log(f"could not install the bridge: {ex}")

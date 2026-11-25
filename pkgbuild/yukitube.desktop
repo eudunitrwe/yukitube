@@ -8,7 +8,7 @@ Exec=yukitube %u
 Icon=yukitube
 Terminal=false
 Categories=AudioVideo;Video;
-Keywords=youtube;video;music;remote;telecomanda;neontube;
+Keywords=youtube;video;music;player;remote;telecomanda;
 StartupWMClass=yukitube-remote
 Actions=remote;
 

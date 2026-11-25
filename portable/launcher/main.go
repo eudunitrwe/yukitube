@@ -118,7 +118,7 @@ func remotePort() string {
 
 func remoteRunning() bool {
 	client := http.Client{Timeout: time.Second}
-	resp, err := client.Get(remoteURL + "/nt/ping")
+	resp, err := client.Get(remoteURL + "/yt/ping")
 	if err != nil {
 		return false
 	}
@@ -131,12 +131,12 @@ func remoteRunning() bool {
 // that already runs.
 func forward(target string) bool {
 	body, _ := json.Marshal(map[string]string{"arg": target})
-	req, err := http.NewRequest("POST", remoteURL+"/nt/open", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", remoteURL+"/yt/open", bytes.NewReader(body))
 	if err != nil {
 		return false
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-NeonTube", "1")
+	req.Header.Set("X-YukiTube", "1")
 	client := http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -146,8 +146,8 @@ func forward(target string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// Starts the remote detached, unless it already runs. YUKITUBE_FIREFOX lets
-// it find this Firefox's window to dock to.
+// Starts the remote detached, unless it already runs. YUKITUBE_OPEN lets the
+// remote, when it runs alone (--remote), open links through this launcher.
 func startRemote(exe, remote string, extra ...string) error {
 	python := filepath.Join(remote, "runtime", pythonName)
 	if _, err := os.Stat(python); err != nil {
@@ -164,8 +164,7 @@ func startRemote(exe, remote string, extra ...string) error {
 	}
 	cmd := exec.Command(python, argv...)
 	cmd.Dir = remote
-	firefox := filepath.Join(filepath.Dir(exe), "App", "Firefox", firefoxName)
-	cmd.Env = append(os.Environ(), "YUKITUBE_OPEN="+exe, "YUKITUBE_FIREFOX="+firefox)
+	cmd.Env = append(os.Environ(), "YUKITUBE_OPEN="+exe)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("Telecomanda YukiTube nu a pornit: %v", err)
 	}

@@ -1,7 +1,7 @@
 /* YukiTube bridge agent — runs inside the YouTube page.
  * Reads the player state and executes commands sent by the YukiTube remote.
  * Shared by the browser extension and the userscript. */
-function createNeonAgent(send) {
+function createYukiAgent(send) {
   "use strict";
   const isMusic = location.hostname === "music.youtube.com";
   // Inside a userscript manager's sandbox (Violentmonkey in Firefox), the

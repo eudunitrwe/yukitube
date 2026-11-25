@@ -1,12 +1,12 @@
 /* Main-world glue: talks to the isolated content script via window.postMessage. */
 (() => {
-  if (window.__neontubeAgent) return;
-  const agent = createNeonAgent((msg) => window.postMessage({ __neontube: "up", msg }, location.origin));
-  window.__neontubeAgent = agent;
-  document.documentElement.dataset.neontube = "ext"; // visible to userscripts in any world
+  if (window.__yukitubeAgent) return;
+  const agent = createYukiAgent((msg) => window.postMessage({ __yukitube: "up", msg }, location.origin));
+  window.__yukitubeAgent = agent;
+  document.documentElement.dataset.yukitubeAgent = "ext"; // visible to userscripts in any world
   window.addEventListener("message", (e) => {
-    if (e.source !== window || !e.data || e.data.__neontube !== "down") return;
+    if (e.source !== window || !e.data || e.data.__yukitube !== "down") return;
     agent.handle(e.data.msg);
   });
-  window.postMessage({ __neontube: "up", msg: agent.hello() }, location.origin);
+  window.postMessage({ __yukitube: "up", msg: agent.hello() }, location.origin);
 })();

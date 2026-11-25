@@ -42,7 +42,6 @@ class _Conn:
 
 class WsServer(QObject):
     message = Signal(int, dict)       # connection id, decoded JSON
-    old_bridge = Signal()             # a NeonTube-era userscript called in
     open_request = Signal(str)        # a second YukiTube launch: link, search or ""
     connected = Signal(int)
     disconnected = Signal(int)
@@ -98,10 +97,10 @@ class WsServer(QObject):
                     c.sock.abort()
                 return
             head = bytes(c.buf[:end]).decode("latin-1")
-            if head.startswith(("POST /nt/", "OPTIONS /nt/")):
+            if head.startswith(("POST /yt/", "OPTIONS /yt/")):
                 self._http(c, head, end)
                 return
-            if head.startswith(("GET /nt/ping ", "GET /yukitube.user.js", "GET /neontube.user.js")):
+            if head.startswith(("GET /yt/ping ", "GET /yukitube.user.js")):
                 del c.buf[: end + 4]
                 self._http_get(c, head.split(" ", 2)[1])
                 return
@@ -112,7 +111,7 @@ class WsServer(QObject):
 
     # ----------------------------------------------------- HTTP transport
     def _http(self, c, head, end):
-        """POST /nt/up  {tab, agent, msgs:[...]}  ->  {cmds:[...]}
+        """POST /yt/up  {tab, agent, msgs:[...]}  ->  {cmds:[...]}
 
         Used by the userscript through GM_xmlhttpRequest, which is not subject
         to the browser's local-network restrictions for web pages. A custom
@@ -134,10 +133,10 @@ class WsServer(QObject):
             return  # wait for the rest of the body
         body = bytes(c.buf[end + 4:end + 4 + n])
         del c.buf[: end + 4 + n]
-        if lines[0].startswith("OPTIONS") or hdr.get("x-neontube") != "1":
+        if lines[0].startswith("OPTIONS") or hdr.get("x-yukitube") != "1":
             return self._http_reply(c, 403, {})
-        # POST /nt/open {arg}: YukiTube launched again while the remote runs.
-        if lines[0].startswith("POST /nt/open "):
+        # POST /yt/open {arg}: YukiTube launched again while the remote runs.
+        if lines[0].startswith("POST /yt/open "):
             try:
                 arg = json.loads(body.decode("utf-8")).get("arg", "")
             except (ValueError, AttributeError, UnicodeDecodeError):
@@ -150,11 +149,9 @@ class WsServer(QObject):
             msgs = obj.get("msgs") or []
         except (ValueError, KeyError, TypeError, UnicodeDecodeError):
             return self._http_reply(c, 400, {})
-        # Bridges from before YukiTube 0.3.1 (NeonTube's own, and the first
-        # YukiTube ones) control YouTube in ways that fail in YukiTube's
-        # Firefox, and would take commands meant for the current bridge.
+        # Bridges that do not say their version are from before YukiTube
+        # 0.3.1 and control YouTube in ways that fail; they get no orders.
         if not obj.get("bridge"):
-            self.old_bridge.emit()
             return self._http_reply(c, 200, {"cmds": []})
         for m in msgs:
             if isinstance(m, dict):
@@ -166,13 +163,12 @@ class WsServer(QObject):
         self._http_reply(c, 200, {"cmds": self._http_q.pop(tab, [])})
 
     def _http_get(self, c, path):
-        """GET /nt/ping: lets the YukiTube launcher see the remote is up.
+        """GET /yt/ping: lets the YukiTube launcher see the remote is up.
         GET /yukitube.user.js: the bridge userscript, for Violentmonkey to
-        install (and later update) from this address. /neontube.user.js is
-        where bridges installed before the rename look for updates."""
-        if path.startswith(("/yukitube.user.js", "/neontube.user.js")) and self.userscript:
+        install (and later update) from this address."""
+        if path.startswith("/yukitube.user.js") and self.userscript:
             data, ctype = self.userscript, "text/javascript; charset=utf-8"
-        elif path == "/nt/ping":
+        elif path == "/yt/ping":
             data, ctype = json.dumps(self.ping).encode(), "application/json"
         else:
             return self._http_reply(c, 403, {})

@@ -1,14 +1,16 @@
 #!/bin/bash
-# Builds the two release archives in dist/, one per system:
+# Builds the release files in dist/:
 #
-#   yukitube-<version>-linux-x86_64.tar.gz   launcher, YukiTube remote (built
-#                                            binary), Arch package, per-user
-#                                            installer
+#   yukitube-<version>-linux-x86_64.tar.xz   launcher, YukiTube remote (built
+#                                            binary), per-user installer
+#   yukitube-<version>-1-any.pkg.tar.zst     the Arch package (uses the
+#                                            system's Python and PySide6)
 #   yukitube-<version>-windows-x64.zip       portable folder: YukiTube.exe, its
 #                                            own Firefox, the remote (embedded
 #                                            Python + Qt)
 #
-# Each carries the verified add-ons, so installing needs no download.
+# Each carries the verified add-ons, so installing needs no download. Only
+# what YukiTube uses is kept, to keep the downloads small.
 # Needs: uv, mise (for Go), bwrap, git, zip, bsdtar, curl, binutils.
 set -euo pipefail
 
@@ -89,7 +91,10 @@ rm -rf "$qt/translations" "$qt/plugins/egldeviceintegrations" "$qt/plugins/platf
   "$qt/lib/libQt6EglFSDeviceIntegration.so.6"
 for x in eglfs linuxfb minimalegl minimal vkkhrdisplay vnc; do rm -f "$qt/plugins/platforms/libq$x.so"; done
 rm -f "$qt/plugins/imageformats/"libq{pdf,tiff,webp,icns,tga,wbmp}.so
-find "$int" -name '*.so*' -type f -exec strip --strip-unneeded {} + 2>/dev/null || true
+find "$int" -name '*.so*' -type f -print0 | while IFS= read -r -d '' so; do
+  chmod u+w "$so"
+  strip --strip-all "$so" 2>/dev/null || true
+done
 glibc=$(find "$int" "$rbin/yukitube-remote" -type f \( -name '*.so*' -o -name yukitube-remote \) -exec objdump -T {} + 2>/dev/null |
   grep -o 'GLIBC_2\.[0-9]*' | sort -t. -k2 -n -u | tail -1)
 echo "    the remote needs $glibc or newer"
@@ -105,7 +110,6 @@ cp "$root/bin/install-user" "$linux/install.sh"
 stage_share "$linux/share"
 cp -r "$rbin" "$linux/share/remote"
 cp "$root/pkgbuild/yukitube.desktop" "$root/pkgbuild/yukitube.svg" "$root/LICENSE" "$linux/"
-cp "$root/pkgbuild/yukitube-$version-1-any.pkg.tar.zst" "$linux/"
 cp "$root/dist-docs/linux/README.md" "$root/dist-docs/linux/INSTALARE.md" "$linux/"
 chmod +x "$linux/install.sh" "$linux/bin/yukitube"
 
@@ -120,6 +124,15 @@ mkdir -p "$work/setup"
 bsdtar -xf "$setup" -C "$work/setup"
 [[ -f $work/setup/core/firefox.exe ]] || { echo "No firefox.exe in the installer" >&2; exit 1; }
 mv "$work/setup/core" "$win/App/Firefox"
+# Not needed by a portable YukiTube, and loaded only on demand: the updater
+# and uninstaller (updates are off), the crash reporter, the default-browser
+# and notification helpers, local AI (onnxruntime, mozinference), WebGPU's
+# shader compiler, and the ClearKey test DRM. user.js keeps those features off.
+(cd "$win/App/Firefox" && rm -rf uninstall gmp-clearkey \
+  updater.exe updater.ini update-settings.ini maintenanceservice.exe maintenanceservice_installer.exe \
+  crashreporter.exe default-browser-agent.exe pingsender.exe private_browsing.exe \
+  private_browsing.VisualElementsManifest.xml nmhproxy.exe notification-helper.exe \
+  onnxruntime.dll mozinference.dll dxcompiler.dll wmfclearkey.dll precomplete removed-files)
 install -Dm644 "$root/portable/policies.json" "$win/App/Firefox/distribution/policies.json"
 stage_share "$win/App/share"
 
@@ -129,6 +142,11 @@ mkdir -p "$rt"
 embed=$cache/python-$PYTHON_WIN-embed-amd64.zip
 fetch "https://www.python.org/ftp/python/$PYTHON_WIN/python-$PYTHON_WIN-embed-amd64.zip" "$PYTHON_WIN_SHA256" "$embed"
 bsdtar -xf "$embed" -C "$rt"
+# The remote needs no SSL in Python (Qt does HTTPS), no sqlite, XML, or
+# compression modules, and hashlib falls back to its built-in SHA-1.
+(cd "$rt" && rm -f _ssl.pyd libssl-3.dll libcrypto-3.dll _hashlib.pyd _sqlite3.pyd sqlite3.dll \
+  _decimal.pyd _lzma.pyd _bz2.pyd _elementtree.pyd pyexpat.pyd _msi.pyd _wmi.pyd \
+  _multiprocessing.pyd _overlapped.pyd _asyncio.pyd _zoneinfo.pyd python.cat)
 pth=$(ls "$rt"/python3*._pth)
 printf '%s\r\n' "$(basename "$(ls "$rt"/python3*.zip)")" "." 'Lib\site-packages' '..\app' "import site" >"$pth"
 sp=$cache/win-site-packages
@@ -146,11 +164,12 @@ mkdir -p "$lib/PySide6/plugins" "$lib/shiboken6"
   Qt6Core.dll Qt6Gui.dll Qt6Widgets.dll Qt6Network.dll Qt6Svg.dll \
   msvcp140*.dll vcruntime140*.dll concrt140.dll "$lib/PySide6/")
 cp -r "$sp/PySide6/support" "$lib/PySide6/" 2>/dev/null || true
-for d in platforms imageformats iconengines tls styles networkinformation; do
+for d in platforms imageformats iconengines tls styles; do
   [[ -d $sp/PySide6/plugins/$d ]] && cp -r "$sp/PySide6/plugins/$d" "$lib/PySide6/plugins/"
 done
-rm -f "$lib/PySide6/plugins/imageformats/"{qpdf,qtiff,qwebp,qicns,qtga,qwbmp}.dll
-rm -f "$lib/PySide6/plugins/platforms/"{qdirect2d,qminimal}.dll
+rm -f "$lib/PySide6/plugins/imageformats/"{qpdf,qtiff,qwebp,qicns,qtga,qwbmp,qgif}.dll
+rm -f "$lib/PySide6/plugins/platforms/"{qdirect2d,qminimal,qoffscreen}.dll
+rm -f "$lib/PySide6/plugins/tls/qopensslbackend.dll"
 cp -r "$sp"/pyside6_essentials-*.dist-info "$sp"/shiboken6-*.dist-info "$lib/"
 stage_remote_app "$win/App/Remote/app"
 
@@ -174,12 +193,14 @@ crlf "$root/LICENSE" "$win/LICENSE.txt"
 
 # ---------------------------------------------------------------- archives
 echo "==> archives"
-tgz=$dist/yukitube-$version-linux-x86_64.tar.gz
+txz=$dist/yukitube-$version-linux-x86_64.tar.xz
+pkg=$dist/yukitube-$version-1-any.pkg.tar.zst
 zip=$dist/yukitube-$version-windows-x64.zip
-rm -f "$tgz" "$zip"
-tar -czf "$tgz" -C "$work" "yukitube-$version-linux-x86_64"
+rm -f "$txz" "$pkg" "$zip"
+tar -C "$work" -cf - "yukitube-$version-linux-x86_64" | xz -9e -T0 >"$txz"
+cp "$root/pkgbuild/yukitube-$version-1-any.pkg.tar.zst" "$pkg"
 (cd "$work" && zip -qr -9 "$zip" YukiTube)
-(cd "$dist" && sha256sum "$(basename "$tgz")" "$(basename "$zip")" >"yukitube-$version-SHA256SUMS")
+(cd "$dist" && sha256sum "$(basename "$txz")" "$(basename "$pkg")" "$(basename "$zip")" >"yukitube-$version-SHA256SUMS")
 
 echo "Built:"
-ls -lh "$tgz" "$zip"
+ls -lh "$txz" "$pkg" "$zip"

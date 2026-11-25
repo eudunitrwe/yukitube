@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YukiTube Bridge
-// @namespace    neontube.local
-// @version      1.5.0
+// @namespace    yukitube.local
+// @version      1.6.0
 // @description  Connects this YouTube tab to the YukiTube remote running on this computer (127.0.0.1:8975).
 // @match        https://www.youtube.com/*
 // @match        https://music.youtube.com/*

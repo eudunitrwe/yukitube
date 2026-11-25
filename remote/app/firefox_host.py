@@ -7,8 +7,9 @@ cannot switch between the two, so it is restarted, visible, on the page to
 show, and when that window is closed, or hidden again, it goes back to
 running headless.
 
-On the first launch the profile gets the bridge userscript first (see
-provision.py), in a thread, while the remote already shows.
+On the first launch, and when the bridge has a new version, the profile gets
+the bridge userscript first (see provision.py), in a thread, while the
+remote already shows.
 """
 import os
 import shlex
@@ -39,8 +40,6 @@ class FirefoxHost(QObject):
         self._quitting = False
         self._fails = 0
         self._started_at = 0.0
-        # Lets the remote's docking find this Firefox's window on Windows.
-        os.environ.setdefault("YUKITUBE_FIREFOX", firefox)
 
     # ------------------------------------------------------------- public
     def running(self):
@@ -48,7 +47,7 @@ class FirefoxHost(QObject):
 
     def start(self, url=None):
         """First start: prepares the profile if needed, then runs headless."""
-        if os.path.exists(os.path.join(self.profile, provision.MARKER)):
+        if provision.is_current(self.profile, self.userscript):
             self._launch(False, url)
             return
         self.preparing = True
@@ -144,6 +143,8 @@ class FirefoxHost(QObject):
         p = QProcess(self)
         env = p.processEnvironment()
         env.remove("MOZ_HEADLESS")
+        # No crash reporter: the Windows build leaves it out.
+        env.insert("MOZ_CRASHREPORTER_DISABLE", "1")
         p.setProcessEnvironment(env)
         p.setProgram(self.firefox)
         p.setArguments(args)

@@ -43,7 +43,7 @@ fi
 
 port=${YUKITUBE_PORT:-8975}
 remote_running() {
-  curl -fs --max-time 1 "http://127.0.0.1:$port/nt/ping" 2>/dev/null | grep -q '"yukitube-remote"'
+  curl -fs --max-time 1 "http://127.0.0.1:$port/yt/ping" 2>/dev/null | grep -q '"yukitube-remote"'
 }
 
 # Started detached. A remote that already runs takes the arguments from the

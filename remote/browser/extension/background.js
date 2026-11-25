@@ -58,7 +58,7 @@ function connect() {
 }
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== "neontube" || !port.sender || !port.sender.tab) return;
+  if (port.name !== "yukitube" || !port.sender || !port.sender.tab) return;
   const key = keyFor(port.sender.tab.id);
   const old = ports.get(key);
   if (old && old !== port) { try { old.disconnect(); } catch (e) {} }
@@ -79,7 +79,7 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 // Wake up periodically so the bridge reconnects when the app is started later.
-chrome.alarms.create("neontube-keepalive", { periodInMinutes: 0.5 });
+chrome.alarms.create("yukitube-keepalive", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener(() => connect());
 chrome.runtime.onStartup.addListener(connect);
 chrome.runtime.onInstalled.addListener(connect);

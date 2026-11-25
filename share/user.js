@@ -47,6 +47,19 @@ user_pref("browser.sessionstore.resume_from_crash", false);
 user_pref("toolkit.startup.max_resumed_crashes", -1);
 user_pref("browser.sessionstore.max_resumed_crashes", 0);
 
+// Small on disk: the web and media caches stay within 100 MB each (Firefox
+// would otherwise let them grow to about 1 GB), and features YukiTube never
+// uses stay off (local AI, translations, WebGPU; the Windows build leaves
+// out their libraries).
+user_pref("browser.cache.disk.smart_size.enabled", false);
+user_pref("browser.cache.disk.capacity", 102400);
+user_pref("media.cache_size", 102400);
+user_pref("browser.ml.enable", false);
+user_pref("browser.ml.chat.enabled", false);
+user_pref("browser.translations.enable", false);
+user_pref("dom.webgpu.enabled", false);
+user_pref("browser.shopping.experience2023.enabled", false);
+
 // Dark, like the desktop.
 user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
 user_pref("layout.css.prefers-color-scheme.content-override", 0);

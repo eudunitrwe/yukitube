@@ -20,7 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-The YukiTube remote (remote/, formerly NeonTube) is part of YukiTube under
+The YukiTube remote (remote/) is part of YukiTube under
 this license. Its fonts in remote/app/assets/fonts (Orbitron, Share Tech
 Mono) are licensed under the SIL Open Font License 1.1, see
 remote/app/assets/fonts/OFL.txt.
