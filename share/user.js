@@ -40,6 +40,13 @@ user_pref("media.autoplay.blocking_policy", 0);
 // --marionette this does nothing.
 user_pref("marionette.port", 0);
 
+// The YukiTube remote stops and restarts this Firefox when it shows or
+// hides the YouTube window (a headless Firefox has no window to close), so a
+// stop is never treated as a crash: no "Restore session" page, no Safe Mode.
+user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("toolkit.startup.max_resumed_crashes", -1);
+user_pref("browser.sessionstore.max_resumed_crashes", 0);
+
 // Dark, like the desktop.
 user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
 user_pref("layout.css.prefers-color-scheme.content-override", 0);

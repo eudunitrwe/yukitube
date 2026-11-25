@@ -1,4 +1,4 @@
-# Instalare YukiTube 0.4.0 pe Linux
+# Instalare YukiTube 0.4.1 pe Linux
 
 Arhiva conține YukiTube: fereastra YouTube și telecomanda ei (fostul NeonTube), ca o singură aplicație. Funcționează pe Linux 64-bit (x86_64) cu glibc 2.34 sau mai nou (Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
 
@@ -22,8 +22,8 @@ Setările vechiului NeonTube (`~/.config/NeonTube/`) sunt preluate automat de te
 ## Pasul 1: dezarhivează
 
 ```sh
-tar -xzf yukitube-0.4.0-linux-x86_64.tar.gz
-cd yukitube-0.4.0-linux-x86_64
+tar -xzf yukitube-0.4.1-linux-x86_64.tar.gz
+cd yukitube-0.4.1-linux-x86_64
 ```
 
 ## Pasul 2: alege o variantă de instalare
@@ -33,7 +33,7 @@ Folosește **doar una** dintre ele, altfel YukiTube apare de două ori în launc
 ### Varianta A: Arch Linux (pachet de sistem, recomandat)
 
 ```sh
-sudo pacman -U yukitube-0.4.0-1-any.pkg.tar.zst
+sudo pacman -U yukitube-0.4.1-1-any.pkg.tar.zst
 ```
 
 Pacman instalează și dependențele (Firefox, curl, jq, Python, PySide6). Telecomanda rulează pe PySide6-ul sistemului. Dezinstalare:
@@ -56,9 +56,9 @@ Pune fișierele în `~/.local/bin` și `~/.local/share` (telecomanda e inclusă 
 
 ## Pasul 3: prima pornire
 
-1. Caută „YukiTube” în launcher și pornește-l. Prima dată durează câteva secunde în plus: YukiTube își pregătește singur profilul și puntea, fără să-ți ceară nimic. Apoi se deschid fereastra YouTube și telecomanda YukiTube.
-2. Pornește un videoclip. Punctul de lângă logo-ul telecomenzii devine **verde**: gata.
-3. Opțional: apasă **butonul de cont** (👤) din telecomandă ca să te autentifici cu contul Google.
+1. Caută „YukiTube” în launcher și pornește-l. Prima dată durează câteva secunde în plus: YukiTube își pregătește singur profilul și puntea, fără să-ți ceară nimic. Se deschide doar telecomanda YukiTube: YouTube cântă într-un Firefox ascuns, în spatele ei.
+2. Caută ceva cu 🔍 și apasă pe un rezultat. Punctul de lângă logo-ul telecomenzii e **verde** când YouTube e conectat.
+3. Opțional: apasă **butonul de cont** (👤) ca să te autentifici cu contul Google. Se deschide fereastra YouTube; după autentificare, închide-o. Fereastra YouTube o poți arăta oricând cu butonul ↗ sau din meniul ⋮.
 
 Dacă ai avut NeonTube, în Violentmonkey pot rămâne punți vechi („NeonTube Bridge…”). Telecomanda le ignoră, dar le poți șterge din panoul Violentmonkey (iconița lui → ⚙ → Installed scripts → coșul de gunoi).
 

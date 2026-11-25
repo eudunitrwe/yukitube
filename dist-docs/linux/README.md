@@ -45,6 +45,7 @@ Pornește odată cu YukiTube și rămâne deschisă și după ce închizi fereas
 | `SKIP ▸` | sare peste reclamă, când YouTube permite |
 | 👤 | contul Google: te autentifici în YouTube; când ești conectat arată poza contului (meniu: schimbă contul, deconectare) |
 | 🔍 | caută pe YouTube (singurul loc de căutare: căsuța YouTube e ascunsă); click pe rezultat îl redă în YukiTube |
+| ↗ | arată / ascunde fereastra YouTube (altfel YouTube cântă ascuns) |
 | ⇕ / dublu-click pe fundal | mod compact / complet |
 | ⋮ / click dreapta pe fundal | mereu deasupra, transparență, „Conectează YukiTube”, ajutor |
 | Ctrl + rotiță | transparența ferestrei |

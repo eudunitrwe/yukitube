@@ -1,18 +1,20 @@
 // Command YukiTube is the portable Windows launcher. It keeps a Firefox
 // profile in Data\ beside itself, puts the bundled add-ons and settings in it,
-// starts the YukiTube remote from App\Remote, and starts the Firefox in
-// App\Firefox on the profile. Nothing is installed, and nothing outside the
-// folder is needed.
+// and starts the YukiTube remote from App\Remote, which runs YouTube in the
+// Firefox in App\Firefox on the profile, hidden (headless). Nothing is
+// installed, and nothing outside the folder is needed.
 //
-//	YukiTube.exe                 open YouTube (and the remote)
-//	YukiTube.exe <link|words>    open a link or search YouTube
+//	YukiTube.exe                 open the remote (YouTube runs hidden behind it)
+//	YukiTube.exe <link|words>    play a link or search YouTube in the remote
 //	YukiTube.exe --remote        open only the remote
 package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,25 +75,27 @@ func run(exe string, args []string) error {
 		}
 	}
 
-	// A missing remote is not a reason to keep YouTube from opening.
+	target := resolve(strings.Join(args, " "))
+
+	// The remote runs YouTube in this Firefox, hidden; on the first launch
+	// it first puts the bridge userscript into Violentmonkey, out of sight.
+	// A remote that already runs takes the link or search and comes to the
+	// front.
 	if os.Getenv("YUKITUBE_REMOTE") != "0" {
-		startRemote(exe, remote)
+		if remoteRunning() {
+			if forward(target) {
+				return nil
+			}
+		} else if startRemote(exe, remote, "--firefox", firefox, "--profile", profile, target) == nil {
+			return nil
+		}
 	}
 
-	// The remote talks to YouTube through a userscript in Violentmonkey. On
-	// the first launch the remote puts it there itself, through this Firefox
-	// running headless for a few seconds, so no Install page ever shows. It
-	// is retried at the next launch if it did not work; the marker records
-	// that it did.
-	if _, err := os.Stat(filepath.Join(profile, ".yukitube-bridge-installed")); err != nil {
-		prepareProfile(remote, firefox, profile)
-	}
-
-	// A second launch reaches the running window through Firefox's own
-	// per-profile remoting, so YukiTube never opens twice on one profile.
+	// Without the remote: the Firefox window alone. A second launch reaches
+	// the running window through Firefox's own per-profile remoting.
 	argv := []string{"-profile", profile}
 	argv = append(argv, strings.Fields(os.Getenv("YUKITUBE_FIREFOX_ARGS"))...)
-	if target := resolve(strings.Join(args, " ")); target != "" {
+	if target != "" {
 		argv = append(argv, target)
 	}
 	cmd := exec.Command(firefox, argv...)
@@ -113,8 +117,27 @@ func remoteRunning() bool {
 	return strings.Contains(string(body), `"yukitube-remote"`)
 }
 
-// Starts the remote detached, unless it already runs. YUKITUBE_OPEN makes
-// the links it opens come back here, into the YukiTube window.
+// Hands a link or search ("" just brings it to the front) to the remote
+// that already runs.
+func forward(target string) bool {
+	body, _ := json.Marshal(map[string]string{"arg": target})
+	req, err := http.NewRequest("POST", "http://127.0.0.1:8975/nt/open", bytes.NewReader(body))
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-NeonTube", "1")
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+// Starts the remote detached, unless it already runs. YUKITUBE_FIREFOX lets
+// it find this Firefox's window to dock to.
 func startRemote(exe, remote string, extra ...string) error {
 	python := filepath.Join(remote, "runtime", pythonName)
 	if _, err := os.Stat(python); err != nil {
@@ -123,36 +146,20 @@ func startRemote(exe, remote string, extra ...string) error {
 	if remoteRunning() {
 		return nil
 	}
-	argv := append([]string{filepath.Join(remote, "app", "yukitube_remote.py"), "--quiet-if-running"}, extra...)
+	argv := []string{filepath.Join(remote, "app", "yukitube_remote.py"), "--quiet-if-running"}
+	for _, a := range extra {
+		if a != "" {
+			argv = append(argv, a)
+		}
+	}
 	cmd := exec.Command(python, argv...)
 	cmd.Dir = remote
-	// YUKITUBE_FIREFOX lets the remote find this Firefox's window to dock to.
 	firefox := filepath.Join(filepath.Dir(exe), "App", "Firefox", firefoxName)
 	cmd.Env = append(os.Environ(), "YUKITUBE_OPEN="+exe, "YUKITUBE_FIREFOX="+firefox)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("Telecomanda YukiTube nu a pornit: %v", err)
 	}
 	return cmd.Process.Release()
-}
-
-// Runs the remote's --prepare-profile and waits for it, at most two minutes.
-func prepareProfile(remote, firefox, profile string) {
-	python := filepath.Join(remote, "runtime", pythonName)
-	if _, err := os.Stat(python); err != nil {
-		return
-	}
-	cmd := exec.Command(python, filepath.Join(remote, "app", "yukitube_remote.py"), "--prepare-profile", firefox, profile)
-	cmd.Dir = remote
-	if err := cmd.Start(); err != nil {
-		return
-	}
-	done := make(chan struct{})
-	go func() { cmd.Wait(); close(done) }()
-	select {
-	case <-done:
-	case <-time.After(2 * time.Minute):
-		cmd.Process.Kill()
-	}
 }
 
 // Add-ons are copied in once, after checking them against addons.tsv;

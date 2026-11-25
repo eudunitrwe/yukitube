@@ -20,7 +20,7 @@ Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude 
 
 ### What it does
 
-YukiTube opens YouTube in a separate Firefox profile that looks like a standalone app (no tab bar, dark neon purple/pink/cyan theme). Your login, history and extensions stay apart from your normal Firefox. It comes with three add-ons preinstalled from addons.mozilla.org:
+YukiTube is a YouTube player: you use only the **YukiTube remote** (search, play, volume, account), and YouTube plays in a hidden Firefox behind it, on a profile of its own (your login, history and extensions stay apart from your normal Firefox). The YouTube window (no tab bar, dark neon purple/pink/cyan theme) appears only when you ask for it. It comes with three add-ons preinstalled from addons.mozilla.org:
 
 - **uBlock Origin** blocks ads, including YouTube video ads.
 - **YouTube NonStop** automatically dismisses "Continue watching?".
@@ -55,7 +55,7 @@ To uninstall: run `Sterge-scurtaturi.cmd`, then delete the `YukiTube` folder.
 
 ### First run (both systems)
 
-Nothing to click. The very first launch takes a few seconds longer: YukiTube quietly installs the "YukiTube Bridge" userscript into Violentmonkey (through an invisible, headless Firefox) before the window opens. Start a video: the dot next to the remote's logo turns **green**. To sign in to YouTube, click the **account button** (👤) in the remote. Music is searched from the remote (🔍 or `Ctrl+F`); YouTube's own search box is hidden. Drag the remote's edges to resize it.
+Only the remote opens; nothing to click. The very first launch takes a few seconds longer ("Pregătesc YukiTube…") while YukiTube sets itself up. Search with 🔍 (or `Ctrl+F`) and click a result to play it. To sign in to YouTube, click the **account button** (👤): the YouTube window opens on Google's sign-in page; close it when you're done. The ↗ button (or menu ⋮) shows or hides the YouTube window. Drag the remote's edges to resize it. Closing the remote stops YouTube too.
 
 Full step-by-step instructions (in Romanian) are inside each archive: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -65,7 +65,7 @@ Full step-by-step instructions (in Romanian) are inside each archive: `INSTALARE
 
 ### Ce face
 
-YukiTube deschide YouTube într-un profil separat de Firefox, care arată ca o aplicație (fără bara de taburi, culori neon mov/roz/cyan). Autentificarea, istoricul și extensiile nu se amestecă cu Firefox-ul tău obișnuit. Vine cu trei add-on-uri instalate din start, de pe addons.mozilla.org:
+YukiTube e un player YouTube: folosești doar **telecomanda YukiTube** (căutare, redare, volum, cont), iar YouTube cântă într-un Firefox ascuns, în spatele ei, pe un profil separat (autentificarea, istoricul și extensiile nu se amestecă cu Firefox-ul tău obișnuit). Fereastra YouTube (fără bara de taburi, culori neon mov/roz/cyan) apare doar când o ceri. Vine cu trei add-on-uri instalate din start, de pe addons.mozilla.org:
 
 - **uBlock Origin** blochează reclamele, inclusiv pe cele video de pe YouTube.
 - **YouTube NonStop** închide singur dialogul „Continui vizionarea?”.
@@ -100,7 +100,7 @@ Dezinstalare: rulează `Sterge-scurtaturi.cmd`, apoi șterge folderul `YukiTube`
 
 ### Prima pornire (ambele sisteme)
 
-Nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus: YukiTube instalează singur scriptul „YukiTube Bridge” în Violentmonkey (printr-un Firefox invizibil, headless), înainte să se deschidă fereastra. Pornește un videoclip: punctul de lângă logo-ul telecomenzii devine **verde**. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤) din telecomandă. Muzica se caută din telecomandă (🔍 sau `Ctrl+F`); căsuța de căutare a YouTube e ascunsă. Telecomanda se redimensionează trăgând de margini.
+Se deschide doar telecomanda; nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus („Pregătesc YukiTube…”), cât YukiTube se pregătește singur. Caută cu 🔍 (sau `Ctrl+F`) și apasă pe un rezultat ca să-l redai. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤): se deschide fereastra YouTube la autentificarea Google; închide-o când ai terminat. Butonul ↗ (sau meniul ⋮) arată sau ascunde fereastra YouTube. Telecomanda se redimensionează trăgând de margini. Când închizi telecomanda, se oprește și YouTube.
 
 Instrucțiunile complete, pas cu pas, sunt în fiecare arhivă: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -133,7 +133,7 @@ telecomanda (remote/app, Python + PySide6) ── 127.0.0.1:8975 ──  YukiTub
 
 Puntea își trimite versiunea (`bridge`) la fiecare mesaj; telecomanda nu dă comenzi punților fără versiune (cele rămase de la NeonTube și primele YukiTube), care controlau YouTube într-un fel care nu merge în Firefox-ul YukiTube.
 
-De ce userscript și nu extensia din `remote/browser/extension`: Firefox-ul obișnuit refuză extensiile nesemnate, iar puntea trebuie să ruleze în Firefox-ul lui YukiTube. Violentmonkey e semnat pe AMO, așa că totul merge pe un Firefox normal, fără setări de dezvoltator. La prima pornire, lansatorul rulează `yukitube-remote --prepare-profile <firefox> <profil>` (`remote/app/provision.py`) înainte să deschidă fereastra: pornește Firefox **headless** pe profil, cu Marionette (`--marionette`, portul ales de Firefox prin `marionette.port = 0` din `user.js`), deschide pagina de opțiuni a Violentmonkey și îi trimite userscript-ul prin comanda lui internă `ParseScript` (aceeași pe care o folosește butonul „Install”), apoi închide Firefox. Nu apare nicio pagină de confirmare. Un marcaj în profil (`.yukitube-bridge-installed`) face ca asta să se întâmple o singură dată; dacă nu a reușit (jurnal: `~/.local/state/yukitube/prepare.log`), se reîncearcă la următoarea pornire. Din meniul telecomenzii (⋮ → „Conectează YukiTube”) se poate instala și manual, prin pagina Violentmonkey.
+De ce userscript și nu extensia din `remote/browser/extension`: Firefox-ul obișnuit refuză extensiile nesemnate, iar puntea trebuie să ruleze în Firefox-ul lui YukiTube. Violentmonkey e semnat pe AMO, așa că totul merge pe un Firefox normal, fără setări de dezvoltator. Lansatorul pornește doar telecomanda, cu `--firefox <exe> --profile <profil>`; telecomanda pornește Firefox **headless** pe profil (`remote/app/firefox_host.py`) și îl repornește cu fereastră doar când trebuie arătată (autentificare, „Arată fereastra YouTube”), apoi înapoi headless când fereastra e închisă. O a doua lansare (`yukitube <link|cuvinte>`) îi trimite telecomenzii care rulează deja link-ul sau căutarea (`POST /nt/open`, cu antetul `X-NeonTube`, ca paginile web să nu-l poată apela). La prima pornire, telecomanda pregătește întâi profilul (`remote/app/provision.py`), într-un fir separat: pornește Firefox **headless** pe profil, cu Marionette (`--marionette`, portul ales de Firefox prin `marionette.port = 0` din `user.js`), deschide pagina de opțiuni a Violentmonkey și îi trimite userscript-ul prin comanda lui internă `ParseScript` (aceeași pe care o folosește butonul „Install”), apoi închide Firefox. Nu apare nicio pagină de confirmare. Un marcaj în profil (`.yukitube-bridge-installed`) face ca asta să se întâmple o singură dată; dacă nu a reușit (jurnal: `~/.local/state/yukitube/remote.log`), se reîncearcă la următoarea pornire. Din meniul telecomenzii (⋮ → „Conectează YukiTube”) se poate instala și manual, prin pagina Violentmonkey.
 
 În Firefox, Violentmonkey rulează puntea izolată de pagină, iar YouTube ignoră `video.play()`/`pause()` și click-urile simulate. De aceea puntea folosește API-ul player-ului YouTube prin `unsafeWindow`, deschide videoclipurile prin navigarea internă YouTube (`yt-navigate`, fără reîncărcare) și își păstrează identificatorul tab-ului în `sessionStorage`. YouTube NonStop amână orice pauză care nu urmează unui click sau unei taste în pagină, așa că o pauză venită de la telecomandă e terminată cu pauza originală pe care NonStop o păstrează (`yns_pause`). `user.js` permite redarea automată, ca un videoclip deschis din telecomandă să pornească singur.
 

@@ -43,6 +43,7 @@ class _Conn:
 class WsServer(QObject):
     message = Signal(int, dict)       # connection id, decoded JSON
     old_bridge = Signal()             # a NeonTube-era userscript called in
+    open_request = Signal(str)        # a second YukiTube launch: link, search or ""
     connected = Signal(int)
     disconnected = Signal(int)
 
@@ -135,6 +136,14 @@ class WsServer(QObject):
         del c.buf[: end + 4 + n]
         if lines[0].startswith("OPTIONS") or hdr.get("x-neontube") != "1":
             return self._http_reply(c, 403, {})
+        # POST /nt/open {arg}: YukiTube launched again while the remote runs.
+        if lines[0].startswith("POST /nt/open "):
+            try:
+                arg = json.loads(body.decode("utf-8")).get("arg", "")
+            except (ValueError, AttributeError, UnicodeDecodeError):
+                return self._http_reply(c, 400, {})
+            self.open_request.emit(str(arg or ""))
+            return self._http_reply(c, 200, {})
         try:
             obj = json.loads(body.decode("utf-8"))
             tab = str(obj["tab"])

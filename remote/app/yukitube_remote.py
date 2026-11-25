@@ -31,7 +31,7 @@ from dock import Docker
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 PORT = int(os.environ.get("YUKITUBE_PORT") or os.environ.get("NEONTUBE_PORT") or "8975")
 WIDTH = 460
 
@@ -777,6 +777,8 @@ class Player(QWidget):
         self.old_bridge_seen = 0.0
         self.ws.old_bridge.connect(lambda: setattr(self, "old_bridge_seen", time.monotonic()))
         self.ws.disconnected.connect(self.on_disconnect)
+        self.ws.open_request.connect(self.handle_open)
+        self.host = None       # FirefoxHost, when the remote runs YukiTube's Firefox
 
         self._build()
         # The window is resized by its edges (see mousePressEvent): any width
@@ -881,8 +883,8 @@ class Player(QWidget):
         self.btn_skip.clicked.connect(lambda: self.cmd("skipAd"))
         chips.addWidget(self.btn_skip)
         chips.addStretch(1)
-        self.btn_open = IconButton("open", 24, 14, "Deschide YouTube în browser")
-        self.btn_open.clicked.connect(self.open_youtube)
+        self.btn_open = IconButton("open", 24, 14, "Arată / ascunde fereastra YouTube")
+        self.btn_open.clicked.connect(self.toggle_youtube)
         chips.addWidget(self.btn_open)
         col.addLayout(chips)
         info.addLayout(col, 1)
@@ -1013,7 +1015,8 @@ class Player(QWidget):
             tm.addAction("Următorul", lambda: self.cmd("next"))
             tm.addAction("Anterior", lambda: self.cmd("prev"))
             tm.addSeparator()
-            tm.addAction("Arată / ascunde", self.toggle_visible)
+            tm.addAction("Arată / ascunde telecomanda", self.toggle_visible)
+            tm.addAction("Arată / ascunde fereastra YouTube", self.toggle_youtube)
             tm.addAction("Ieșire", QApplication.quit)
             self.tray.setContextMenu(tm)
             self.tray.activated.connect(
@@ -1302,7 +1305,11 @@ class Player(QWidget):
             act.setChecked(abs(self.opacity - pct / 100) < 0.026)
             act.triggered.connect(lambda _=False, v=pct / 100: self.set_opacity(v))
         m.addSeparator()
-        m.addAction("Deschide YouTube", self.open_youtube)
+        if self.host:
+            m.addAction("Ascunde fereastra YouTube" if self.youtube_shown() else "Arată fereastra YouTube",
+                        self.toggle_youtube)
+        else:
+            m.addAction("Deschide YouTube", self.open_youtube)
         m.addAction("Conectează YukiTube (instalează puntea)", self.install_bridge)
         m.addAction("Cum conectez browserul?", self.show_help)
         m.addSeparator()
@@ -1544,13 +1551,95 @@ class Player(QWidget):
         self.selected = key
         self.refresh_ui()
 
+    # ------------------------------------------------------ YukiTube Firefox
+    def host_firefox(self, firefox, profile, arg=""):
+        from firefox_host import FirefoxHost
+        self.host = FirefoxHost(firefox, profile, userscript_bytes().decode("utf-8"), self)
+        self.host.state_changed.connect(self.refresh_ui)
+        self.host.prepared.connect(lambda ok: self.refresh_ui())
+        url = self._watch_url(arg)
+        self.host.start(url)
+        if arg and not url:
+            QTimer.singleShot(0, lambda: self.handle_open(arg))
+
+    @staticmethod
+    def _watch_url(arg):
+        """A link to one video, as a watch URL; "" for anything else."""
+        u = QUrl(arg if "://" in arg else "https://" + arg)
+        host = u.host().lower()
+        from PySide6.QtCore import QUrlQuery
+        vid = QUrlQuery(u).queryItemValue("v") if u.path() == "/watch" else ""
+        if host == "youtu.be":
+            vid = u.path().strip("/")
+        elif u.path().startswith(("/shorts/", "/live/")):
+            vid = u.path().split("/")[2]
+        if vid and (host.endswith("youtube.com") or host == "youtu.be"):
+            return f"https://www.youtube.com/watch?v={vid}"
+        return ""
+
+    def handle_open(self, arg):
+        """YukiTube launched with a link or words (or again, while running)."""
+        arg = (arg or "").strip()
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+        if not arg:
+            return
+        from PySide6.QtCore import QUrlQuery
+        u = QUrl(arg)
+        q = QUrlQuery(u).queryItemValue("search_query", QUrl.FullyDecoded) if u.path() == "/results" else ""
+        is_link = "://" in arg or arg.startswith(("www.", "youtube.com", "youtu.be", "m.youtube.com"))
+        if q or not is_link:
+            # Searches happen in the remote.
+            self.btn_search.setChecked(True)
+            self.search_edit.setText(q or arg)
+            self.do_search()
+            return
+        watch = self._watch_url(arg)
+        if watch:
+            vid = watch.rsplit("=", 1)[1]
+            if self.cur_key and self.cmd("open", {"id": vid}):
+                return
+            if self.host:
+                self.host.navigate_headless(watch)
+                return
+        self.open_url(arg)
+
+    def youtube_shown(self):
+        return bool(self.host and self.host.visible and self.host.running())
+
+    def _here_url(self):
+        """What plays now, to carry over when Firefox restarts."""
+        st = self.cur_state
+        if st.get("hasVideo") and st.get("id"):
+            t = int(self._cur_time())
+            return f"https://www.youtube.com/watch?v={st['id']}" + (f"&t={t}s" if t > 2 else "")
+        return None
+
+    def toggle_youtube(self):
+        if not self.host:
+            self.open_youtube()
+        elif self.youtube_shown():
+            self.host.hide(self._here_url())
+        else:
+            self.host.show(self._here_url())
+
     def open_youtube(self):
+        if self.host:
+            if not self.youtube_shown():
+                self.host.show(self._here_url())
+            return
         if self.cur_key:
             self.cmd("focus")
             return
         self.open_url("https://www.youtube.com/")
 
     def open_url(self, url):
+        # In YukiTube, pages to look at (sign-in, a new video page) get the
+        # Firefox window.
+        if self.host:
+            self.host.show(url)
+            return
         for cid, kind in self.bridges.items():
             if kind == "extension":
                 if self.ws.send(cid, {"type": "newtab", "url": url}):
@@ -1564,6 +1653,9 @@ class Player(QWidget):
         acc = self.cur_state.get("account") or {}
         if not acc.get("loggedIn"):
             self.open_url(SIGNIN_URL)
+            if self.host and self.tray:
+                self.tray.showMessage(APP_NAME, "După ce te autentifici, închide fereastra YouTube: "
+                                      "YukiTube continuă în telecomandă.", logo_icon(), 8000)
             return
         m = QMenu(self)
         a = m.addAction("✓ Conectat cu contul Google")
@@ -1797,6 +1889,11 @@ class Player(QWidget):
             self.title.set_text("Niciun videoclip deschis")
             self.mini_title.set_text("Niciun videoclip deschis")
             self.channel.setText("Caută ceva și apasă pe rezultat ✦")
+        elif self.host and (self.host.preparing or self.host.running()):
+            first = self.host.preparing
+            self.title.set_text("Pregătesc YukiTube…" if first else "Pornesc YouTube…")
+            self.mini_title.set_text(self.title.text())
+            self.channel.setText("Prima pornire: durează câteva secunde" if first else "O clipă…")
         else:
             self.title.set_text("Niciun tab YouTube conectat")
             self.mini_title.set_text("Niciun tab YouTube conectat")
@@ -1854,12 +1951,51 @@ def load_fonts():
         FONT_UI = QApplication.font().family()
 
 
+def parse_args(argv):
+    """--firefox <exe> --profile <dir>: run YouTube in that Firefox, hidden.
+    --quiet-if-running: no error when the remote already runs.
+    Anything else: a YouTube link or words to search."""
+    opts = {"firefox": "", "profile": "", "quiet": False, "arg": ""}
+    rest = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ("--firefox", "--profile") and i + 1 < len(argv):
+            opts[a[2:]] = argv[i + 1]
+            i += 2
+            continue
+        if a == "--quiet-if-running":
+            opts["quiet"] = True
+        elif a == "--bridge-marker" and i + 1 < len(argv):
+            i += 1  # from launchers before 0.4.0
+        else:
+            rest.append(a)
+        i += 1
+    opts["arg"] = " ".join(rest).strip()
+    return opts
+
+
+def forward_to_running(arg):
+    import json
+    import urllib.request
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{PORT}/nt/open", data=json.dumps({"arg": arg}).encode(),
+        headers={"Content-Type": "application/json", "X-NeonTube": "1"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=3) as r:
+            return r.status == 200
+    except OSError:
+        return False
+
+
 def main():
-    # The launchers' first-launch step: no window, just the profile.
+    # Prepares a profile and exits (kept for testing; the remote does it
+    # itself on the first launch).
     if len(sys.argv) == 4 and sys.argv[1] == "--prepare-profile":
         import provision
         code = userscript_bytes().decode("utf-8")
         return 0 if provision.install_bridge(sys.argv[2], sys.argv[3], code) else 1
+    opts = parse_args(sys.argv[1:])
 
     QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
@@ -1876,8 +2012,9 @@ def main():
     w = Player()
     app.aboutToQuit.connect(w.save_size)
     if not w.ws.listen(PORT):
-        # Started by the YukiTube launcher while one is already running.
-        if "--quiet-if-running" in sys.argv:
+        # Started by the YukiTube launcher while one is already running: the
+        # running one takes the link or search (or just comes to the front).
+        if forward_to_running(opts["arg"]) or opts["quiet"]:
             return 0
         QMessageBox.critical(None, APP_NAME,
                              f"Nu pot porni serverul local pe portul {PORT}.\n"
@@ -1892,6 +2029,11 @@ def main():
     # it from the start; then the size limits are loosened for resizing.
     w.setFixedSize(w.size())
     w.show()
+    if opts["firefox"] and opts["profile"]:
+        w.host_firefox(opts["firefox"], opts["profile"], opts["arg"])
+        app.aboutToQuit.connect(w.host.stop)
+    elif opts["arg"]:
+        QTimer.singleShot(0, lambda: w.handle_open(opts["arg"]))
 
     def loosen():
         w.docker.float_self()

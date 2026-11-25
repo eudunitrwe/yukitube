@@ -1,4 +1,4 @@
-Instalare YukiTube 0.4.0 pe Windows 10 / 11
+Instalare YukiTube 0.4.1 pe Windows 10 / 11
 ===========================================
 
 Nu ai nevoie de Firefox, de Python și nici de drepturi de administrator:
@@ -15,7 +15,7 @@ porni telecomanda. Setările telecomenzii rămân și sunt folosite mai departe.
 
 1. DEZARHIVEAZĂ
 
-Click dreapta pe yukitube-0.4.0-windows-x64.zip > „Extract All...”
+Click dreapta pe yukitube-0.4.1-windows-x64.zip > „Extract All...”
 (Extrage tot) și alege unde să pună folderul: de exemplu Documente,
 Desktop sau un stick USB.
 
@@ -45,11 +45,14 @@ Dublu-click pe YukiTube.exe (sau pe scurtătura YukiTube).
      (Execută oricum). Apare doar la prima pornire.
   b. Prima pornire durează câteva secunde în plus: YukiTube își creează
      profilul în folderul Data, instalează extensiile și puntea, fără să-ți
-     ceară nimic. Apoi se deschid fereastra YouTube și telecomanda.
-  c. Pornește un videoclip. Punctul de lângă logo-ul telecomenzii devine
-     verde: gata.
-  d. Opțional: apasă butonul de cont (omulețul) din telecomandă ca să te
-     autentifici cu contul Google.
+     ceară nimic. Se deschide doar telecomanda: YouTube cântă într-un
+     Firefox ascuns, în spatele ei.
+  c. Caută ceva cu lupa și apasă pe un rezultat. Punctul de lângă logo-ul
+     telecomenzii e verde când YouTube e conectat.
+  d. Opțional: apasă butonul de cont (omulețul) ca să te autentifici cu
+     contul Google. Se deschide fereastra YouTube; după autentificare,
+     închide-o. Fereastra YouTube o poți arăta oricând cu butonul ↗ sau
+     din meniul ⋮.
 
 Dacă punctul nu se face verde: închide YukiTube și pornește-l din nou
 (pregătirea se reia singură). Dacă tot nu merge: în telecomandă, meniul ⋮ >

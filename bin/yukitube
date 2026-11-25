@@ -1,15 +1,16 @@
 #!/bin/bash
-# yukitube — YouTube in its own Firefox window, with uBlock Origin and YouTube
-# NonStop, and the YukiTube remote beside it.
+# yukitube — YouTube with uBlock Origin and YouTube NonStop, played from the
+# YukiTube remote.
 #
-#   yukitube                 open YouTube (and the remote)
-#   yukitube <link>          open a YouTube link
-#   yukitube <words...>      search YouTube
-#   yukitube --remote        open only the remote
+#   yukitube                 open the remote (YouTube runs hidden behind it)
+#   yukitube <link>          play a YouTube link
+#   yukitube <words...>      search YouTube in the remote
+#   yukitube --remote        open only the remote, for other browsers
 #
-# The window runs on a Firefox profile of its own, so its sign-in, history,
-# and add-ons never mix with the user's main Firefox. YUKITUBE_REMOTE=0 skips
-# the remote.
+# YouTube runs in a headless Firefox on a profile of its own, so its sign-in,
+# history, and add-ons never mix with the user's main Firefox; the remote
+# starts it, and shows its window only when asked (or to sign in to Google).
+# YUKITUBE_REMOTE=0 opens the Firefox window alone, as before 0.4.0.
 set -euo pipefail
 
 self=$(readlink -f "$0")
@@ -44,14 +45,14 @@ remote_running() {
   curl -fs --max-time 1 http://127.0.0.1:8975/nt/ping 2>/dev/null | grep -q '"yukitube-remote"'
 }
 
-# Started detached, so closing Firefox leaves it be. YUKITUBE_OPEN makes the
-# links it opens land in this window.
+# Started detached. A remote that already runs takes the arguments from the
+# new one (a link to play, a search) and comes to the front.
 start_remote() {
   ((${#remote[@]})) || return 1
-  remote_running && return 1
   local log=${XDG_STATE_HOME:-$HOME/.local/state}/yukitube/remote.log
   mkdir -p "$(dirname "$log")"
-  YUKITUBE_OPEN=$self setsid -f "${remote[@]}" --quiet-if-running "$@" >"$log" 2>&1 </dev/null
+  remote_running && { "${remote[@]}" --quiet-if-running "$@" >>"$log" 2>&1 </dev/null; return 0; }
+  setsid -f "${remote[@]}" --quiet-if-running "$@" >"$log" 2>&1 </dev/null
 }
 
 if [[ ${1:-} == --remote ]]; then
@@ -85,20 +86,6 @@ cp "$share/user.js" "$profile/user.js"
 # The retrowave look: the window (userChrome) and YouTube itself (userContent).
 cp "$share/userChrome.css" "$share/userContent.css" "$profile/chrome/"
 
-if [[ ${YUKITUBE_REMOTE:-1} != 0 ]]; then
-  start_remote || true
-fi
-
-# The remote talks to YouTube through a userscript in Violentmonkey. On the
-# first launch the remote puts it there itself, through a Firefox that runs
-# headless for a few seconds, so no Install page ever shows. It is retried at
-# the next launch if it did not work; the marker records that it did.
-if ((${#remote[@]})) && [[ ! -f $profile/.yukitube-bridge-installed ]]; then
-  command -v notify-send >/dev/null && notify-send -a YukiTube -t 4000 "YukiTube" "Prima pornire: pregătesc YukiTube…" || true
-  log=${XDG_STATE_HOME:-$HOME/.local/state}/yukitube/prepare.log
-  mkdir -p "$(dirname "$log")"
-  "${remote[@]}" --prepare-profile "$(command -v firefox)" "$profile" >>"$log" 2>&1 </dev/null || true
-fi
 
 # A YouTube link, the remote's own address (the bridge userscript it
 # offers), or Google's sign-in pages (the remote's account button) open as
@@ -113,6 +100,13 @@ if (($#)); then
   else
     url="https://www.youtube.com/results?search_query=$(jq -rn --arg q "$input" '$q|@uri')"
   fi
+fi
+
+# The remote runs YouTube in this Firefox, hidden. On the first launch it
+# first puts the bridge userscript into Violentmonkey, out of sight.
+if [[ ${YUKITUBE_REMOTE:-1} != 0 ]] && ((${#remote[@]})); then
+  start_remote --firefox "$(command -v firefox)" --profile "$profile" ${url:+"$url"}
+  exit 0
 fi
 
 # --name sets the Wayland app id, so Hyprland and the launcher match the
