@@ -1,4 +1,4 @@
-Instalare YukiTube 0.4.1 pe Windows 10 / 11
+Instalare YukiTube 0.4.2 pe Windows 10 / 11
 ===========================================
 
 Nu ai nevoie de Firefox, de Python și nici de drepturi de administrator:
@@ -15,7 +15,7 @@ porni telecomanda. Setările telecomenzii rămân și sunt folosite mai departe.
 
 1. DEZARHIVEAZĂ
 
-Click dreapta pe yukitube-0.4.1-windows-x64.zip > „Extract All...”
+Click dreapta pe yukitube-0.4.2-windows-x64.zip > „Extract All...”
 (Extrage tot) și alege unde să pună folderul: de exemplu Documente,
 Desktop sau un stick USB.
 
