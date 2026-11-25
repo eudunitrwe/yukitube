@@ -33,7 +33,7 @@ import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.4.6"
+VERSION = "0.4.7"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -1602,13 +1602,14 @@ class Player(QWidget):
         tab = self.tabs.get(key)
         if tab is None:
             tab = self.tabs[key] = {"conn": cid, "state": {}, "seen": time.monotonic(), "recv": time.monotonic(),
-                                    "agent": msg.get("agent", "")}
+                                    "agent": msg.get("agent", ""), "born": time.monotonic()}
         tab["conn"] = cid
         tab["seen"] = time.monotonic()
         if t == "state":
             tab["state"] = msg.get("state") or {}
             tab["recv"] = time.monotonic()
             self.refresh_ui()
+            self._check_account(tab)
         elif t == "search_results":
             self.on_agent_results(msg)
         elif t == "hello":
@@ -1734,6 +1735,7 @@ class Player(QWidget):
         from firefox_host import FirefoxHost
         self.host = FirefoxHost(firefox, profile, userscript_bytes().decode("utf-8"), self)
         self.host.state_changed.connect(self.refresh_ui)
+        self.host.state_changed.connect(self._on_host_state)
         self.host.prepared.connect(lambda ok: self.refresh_ui())
         url = self._watch_url(arg)
         self.host.start(url)
@@ -1830,7 +1832,7 @@ class Player(QWidget):
     def account_menu(self):
         acc = self.cur_state.get("account") or {}
         if not acc.get("loggedIn"):
-            self.open_url(SIGNIN_URL)
+            self._account_window(SIGNIN_URL, True)
             if self.host and self.tray:
                 self.tray.showMessage(APP_NAME, T("signin_hint"), logo_icon(), 8000)
             return
@@ -1838,9 +1840,35 @@ class Player(QWidget):
         a = m.addAction(T("signed_in_as"))
         a.setEnabled(False)
         m.addSeparator()
-        m.addAction(T("switch_account"), lambda: self.open_url(SWITCH_URL))
-        m.addAction(T("sign_out"), lambda: self.open_url(SIGNOUT_URL))
+        m.addAction(T("switch_account"), lambda: self._account_window(SWITCH_URL, True))
+        m.addAction(T("sign_out"), lambda: self._account_window(SIGNOUT_URL, False))
         m.exec(self.btn_account.mapToGlobal(QPoint(0, self.btn_account.height())))
+
+    def _account_window(self, url, want):
+        """Shows Google's page in the YouTube window. Once YouTube in that
+        window reports the account as wanted (signed in, or out), the window
+        goes away by itself and YouTube carries on hidden."""
+        self._account_wait = {"want": want, "since": time.monotonic(), "shown": False} if self.host else None
+        self.open_url(url)
+
+    def _on_host_state(self):
+        w = getattr(self, "_account_wait", None)
+        if not w or not self.host:
+            return
+        if self.host.visible:
+            w["shown"] = True
+        elif w["shown"]:
+            self._account_wait = None  # the user closed the window first
+
+    def _check_account(self, tab):
+        w = getattr(self, "_account_wait", None)
+        if not w or not self.youtube_shown() or tab.get("born", 0) < w["since"]:
+            return  # only a tab of the window opened for the account counts
+        if (tab["state"].get("account") or {}).get("loggedIn") is not w["want"]:
+            return
+        self._account_wait = None
+        # A moment, so Firefox has the new sign-in cookies stored.
+        QTimer.singleShot(1500, lambda: self.host.hide(self._here_url()) if self.youtube_shown() else None)
 
     def _sync_account(self, connected):
         acc = (self.cur_state.get("account") or {}) if connected else {}

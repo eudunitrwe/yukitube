@@ -1,4 +1,4 @@
-# Instalare YukiTube 0.4.6 pe Linux
+# Instalare YukiTube 0.4.7 pe Linux
 
 YukiTube e un player YouTube: folosești doar telecomanda YukiTube, iar YouTube cântă într-un Firefox ascuns, în spatele ei. Funcționează pe Linux 64-bit (x86_64) cu glibc 2.34 sau mai nou (Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
 
@@ -13,10 +13,10 @@ Folosește **doar una** dintre ele, altfel YukiTube apare de două ori în launc
 
 ### Varianta A: Arch Linux (pachet de sistem, recomandat)
 
-Descarcă `yukitube-0.4.6-1-any.pkg.tar.zst` (separat, de pe pagina release-ului; e mic, pentru că folosește Python-ul și PySide6 din sistem), apoi:
+Descarcă `yukitube-0.4.7-1-any.pkg.tar.zst` (separat, de pe pagina release-ului; e mic, pentru că folosește Python-ul și PySide6 din sistem), apoi:
 
 ```sh
-sudo pacman -U yukitube-0.4.6-1-any.pkg.tar.zst
+sudo pacman -U yukitube-0.4.7-1-any.pkg.tar.zst
 ```
 
 Pacman instalează și dependențele (Firefox, curl, jq, Python, PySide6). Dezinstalare: `sudo pacman -R yukitube`.

@@ -105,9 +105,9 @@ STRINGS = {
         "ro": "Nu pot porni serverul local pe portul {port}.\nProbabil telecomanda YukiTube rulează deja.\n\n{err}",
         "ru": "Не удаётся запустить локальный сервер на порту {port}.\nВероятно, плеер YukiTube уже запущен.\n\n{err}"},
     "signin_hint": {
-        "en": "When you have signed in, close the YouTube window: YukiTube carries on in the player.",
-        "ro": "După ce te autentifici, închide fereastra YouTube: YukiTube continuă în telecomandă.",
-        "ru": "После входа закройте окно YouTube: YukiTube продолжит работу в плеере."},
+        "en": "Sign in in the YouTube window; it closes by itself once you are signed in.",
+        "ro": "Autentifică-te în fereastra YouTube; se închide singură după ce ești conectat.",
+        "ru": "Войдите в окне YouTube; оно закроется само после входа."},
 
     # account menu
     "signed_in_as": {"en": "✓ Signed in with Google", "ro": "✓ Conectat cu contul Google",
