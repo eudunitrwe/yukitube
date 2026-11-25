@@ -90,16 +90,22 @@
     background: linear-gradient(90deg, #ff2a6d, #05d9e8) !important;
   }
 
-  /* The search box and the selected chip get a neon edge. */
-  ytd-searchbox #container.ytd-searchbox,
-  .ytSearchboxComponentInputBox {
-    border-color: rgba(255, 42, 109, .45) !important;
+  /* Music is searched only from the YukiTube remote: YouTube's own search
+   * box, voice search and the narrow-window search button are hidden. The
+   * box keeps its place, so the logo and the buttons stay where they were. */
+  ytd-masthead #center,
+  #masthead #center {
+    visibility: hidden !important;
   }
-  ytd-searchbox[has-focus] #container.ytd-searchbox,
-  .ytSearchboxComponentInputBoxHasFocus {
-    border-color: #05d9e8 !important;
-    box-shadow: 0 0 8px rgba(5, 217, 232, .5) !important;
+  ytd-masthead #search-button-narrow,
+  ytd-masthead #search-button,
+  ytd-masthead #voice-search-button,
+  ytd-searchbox,
+  yt-searchbox {
+    display: none !important;
   }
+
+  /* The selected chip gets a neon edge. */
   yt-chip-cloud-chip-renderer[selected] #chip-container,
   yt-chip-cloud-chip-renderer[selected] .ytChipShapeChip {
     background: linear-gradient(90deg, #ff2a6d, #d300c5) !important;
@@ -108,6 +114,10 @@
 }
 
 @-moz-document domain("music.youtube.com") {
+  ytmusic-search-box,
+  ytmusic-nav-bar .search-button {
+    display: none !important;
+  }
   html {
     --ytmusic-general-background-a: #0e0220 !important;
     --ytmusic-general-background-b: #12022b !important;

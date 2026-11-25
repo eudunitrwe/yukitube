@@ -31,7 +31,7 @@ from dock import Docker
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 PORT = int(os.environ.get("YUKITUBE_PORT") or os.environ.get("NEONTUBE_PORT") or "8975")
 WIDTH = 460
 
@@ -43,6 +43,14 @@ YELLOW = "#ffd319"
 ORANGE = "#ff901f"
 TEXT = "#f6ecff"
 MUTED = "#bfa3e0"
+
+# The account button's pages, opened in the YukiTube window. After signing in
+# Google comes back to YouTube.
+_BACK = "https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3D%252F"
+SIGNIN_URL = f"https://accounts.google.com/ServiceLogin?service=youtube&passive=true&continue={_BACK}"
+SWITCH_URL = f"https://accounts.google.com/AccountChooser?service=youtube&continue={_BACK}"
+SIGNOUT_URL = "https://www.youtube.com/logout"
+AVATAR_HOSTS = (".ggpht.com", ".googleusercontent.com", ".ytimg.com")
 
 FONT_UI = "Sans Serif"
 FONT_DISPLAY = "Orbitron"
@@ -195,6 +203,45 @@ class PlayButton(IconButton):
         pm = icons.pixmap(self._icon, "#ffffff", self._isz, self.devicePixelRatioF())
         dx = 1.5 if self._icon == "play" else 0
         p.drawPixmap(QPointF((w - self._isz) / 2 + dx, (w - self._isz) / 2), pm)
+
+
+class AccountButton(IconButton):
+    """The Google account: the account's avatar when YouTube is signed in,
+    a person outline (with a pink ring) when it is not."""
+
+    def __init__(self, parent=None):
+        super().__init__("account", 26, 18, parent=parent)
+        self.avatar = None
+        self.logged_in = None
+
+    def set_account(self, logged_in, avatar):
+        if (logged_in, avatar) != (self.logged_in, self.avatar):
+            self.logged_in, self.avatar = logged_in, avatar
+            self.update()
+
+    def paintEvent(self, e):
+        if not self.avatar or self.avatar.isNull():
+            super().paintEvent(e)
+            if self.logged_in is False:
+                p = QPainter(self)
+                p.setRenderHint(QPainter.Antialiasing)
+                p.setPen(QPen(qcolor(PINK, 0.9), 1.2))
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(QRectF(self.rect()).adjusted(3, 3, -3, -3))
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        r = QRectF(self.rect()).adjusted(4, 4, -4, -4)
+        path = QPainterPath()
+        path.addEllipse(r)
+        p.save()
+        p.setClipPath(path)
+        p.drawPixmap(r, self.avatar, QRectF(self.avatar.rect()))
+        p.restore()
+        p.setPen(QPen(QColor(CYAN if self._hover else PINK), 1.4))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(r)
 
 
 class NeonSlider(QWidget):
@@ -381,6 +428,19 @@ class Marquee(QWidget):
                 g.setColorAt(0, QColor(0, 0, 0, 255))
                 g.setColorAt(1, QColor(0, 0, 0, 0))
                 p.fillRect(QRectF(min(x0, x1), 0, 14, self.height()), g)
+
+
+class ElideLabel(QLabel):
+    """A label that ends in "…" instead of being cut when space runs out."""
+
+    def minimumSizeHint(self):
+        return QSize(0, super().minimumSizeHint().height())
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setPen(self.palette().color(self.foregroundRole()))
+        text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, self.width())
+        p.drawText(self.rect(), int(self.alignment()), text)
 
 
 class Thumb(QWidget):
@@ -705,6 +765,7 @@ class Player(QWidget):
         self.search_req = 0
         self.thumbs = {}
         self._thumb_wait = {}
+        self.avatars = {}      # url -> QPixmap (null while it loads)
         self.grid_phase = 0.0
         self.player_h = 0
 
@@ -718,6 +779,12 @@ class Player(QWidget):
         self.ws.disconnected.connect(self.on_disconnect)
 
         self._build()
+        # The window is resized by its edges (see mousePressEvent): any width
+        # from the original one up, and any height while the search is open.
+        self.setMouseTracking(True)
+        for w in self.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
+            w.installEventFilter(self)
+        self.resize(max(WIDTH + 2 * self.PANEL_MARGIN, int(self.settings.value("width", 0) or 0)), 100)
         self._apply_mini()
         self.setWindowFlag(Qt.WindowStaysOnTopHint, self.on_top)
 
@@ -743,7 +810,6 @@ class Player(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(m + 12, m + 8, m + 12, m + 10)
         root.setSpacing(6)
-        root.setSizeConstraint(QVBoxLayout.SetFixedSize)
 
         # header
         hdr = QHBoxLayout()
@@ -753,13 +819,18 @@ class Player(QWidget):
         hdr.addSpacing(6)
         self.dot = StatusDot()
         hdr.addWidget(self.dot)
-        self.status = QLabel("")
+        self.status = ElideLabel()
         self.status.setObjectName("hint")
         self.status.setFont(QFont(FONT_UI, 8))
+        self.status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         hdr.addWidget(self.status, 1)
         self.btn_tab = Chip("TAB 1/1", "Schimbă tab-ul YouTube controlat")
         self.btn_tab.clicked.connect(self.tab_menu)
         hdr.addWidget(self.btn_tab)
+        self.btn_account = AccountButton()
+        self.btn_account.setToolTip("Conectează contul Google")
+        self.btn_account.clicked.connect(self.account_menu)
+        hdr.addWidget(self.btn_account)
         self.btn_dock = IconButton("dock", 26, 16, "Lipește telecomanda de fereastra YouTube  (D)", checkable=True)
         self.btn_dock.toggled.connect(self.set_docked)
         self.btn_search = IconButton("search", 26, 16, "Caută  (Ctrl+F)", checkable=True)
@@ -791,6 +862,7 @@ class Player(QWidget):
         self.channel = QLabel("")
         self.channel.setObjectName("channel")
         self.channel.setFont(QFont(FONT_UI, 9))
+        self.channel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         col.addWidget(self.channel)
         col.addStretch(1)
         chips = QHBoxLayout()
@@ -816,7 +888,6 @@ class Player(QWidget):
         info.addLayout(col, 1)
         self.info_w = QWidget()
         self.info_w.setLayout(info)
-        self.info_w.setFixedWidth(WIDTH - 24)
         info.setContentsMargins(0, 2, 0, 0)
         root.addWidget(self.info_w)
 
@@ -824,7 +895,6 @@ class Player(QWidget):
         fmini = QFont(FONT_UI, 9)
         fmini.setWeight(QFont.DemiBold)
         self.mini_title = Marquee(fmini, TEXT, glow=PINK)
-        self.mini_title.setFixedWidth(WIDTH - 24)
         root.addWidget(self.mini_title)
 
         # seek
@@ -850,7 +920,6 @@ class Player(QWidget):
         self.seek_w = QWidget()
         self.seek_w.setLayout(seek)
         seek.setContentsMargins(0, 0, 0, 0)
-        self.seek_w.setFixedWidth(WIDTH - 24)
         root.addWidget(self.seek_w)
 
         # controls
@@ -890,12 +959,10 @@ class Player(QWidget):
         self.ctl_w = QWidget()
         self.ctl_w.setLayout(ctl)
         ctl.setContentsMargins(0, 0, 0, 0)
-        self.ctl_w.setFixedWidth(WIDTH - 24)
         root.addWidget(self.ctl_w)
 
         # search panel
         self.search_panel = QWidget()
-        self.search_panel.setFixedWidth(WIDTH - 24)
         sp = QVBoxLayout(self.search_panel)
         sp.setContentsMargins(0, 8, 0, 0)
         sp.setSpacing(6)
@@ -912,6 +979,7 @@ class Player(QWidget):
         self.search_status = QLabel("")
         self.search_status.setObjectName("hint")
         self.search_status.setFont(QFont(FONT_UI, 8))
+        self.search_status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         sp.addWidget(self.search_status)
         self.results_model = QStandardItemModel(self)
         self.results_view = QListView()
@@ -922,7 +990,8 @@ class Player(QWidget):
         self.results_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.results_view.verticalScrollBar().setSingleStep(16)
         self.results_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.results_view.setFixedHeight(ResultDelegate.H * 5 + 4)
+        self.results_view.setMinimumHeight(ResultDelegate.H * 2 + 4)
+        self.results_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.results_view.setCursor(Qt.PointingHandCursor)
         self.results_view.clicked.connect(self.on_result_clicked)
         self.results_view.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -930,7 +999,8 @@ class Player(QWidget):
         self.results_view.viewport().installEventFilter(self)
         sp.addWidget(self.results_view)
         self.search_panel.hide()
-        root.addWidget(self.search_panel)
+        # A taller window means more results, not a taller player.
+        root.addWidget(self.search_panel, 1)
 
         # tray
         self.tray = None
@@ -1061,6 +1131,76 @@ class Player(QWidget):
         self._measure()
         super().resizeEvent(e)
 
+    def _fit(self):
+        """Size limits from the layout: the width never below the original
+        one; the height fixed to the player alone, or free (down to two
+        results) while the search is open, where the height last chosen for
+        it comes back."""
+        lay = self.layout()
+        lay.invalidate()
+        lay.activate()
+        need = lay.totalMinimumSize()
+        minw = max(WIDTH + 2 * self.PANEL_MARGIN, need.width())
+        minh = need.height()
+        if self.search_panel.isVisible():
+            h = int(self.settings.value("search_h", 0) or 0) or minh + ResultDelegate.H * 3
+            self.setMinimumSize(minw, minh)
+            self.setMaximumSize(16777215, 16777215)
+        else:
+            h = minh
+            self.setMinimumSize(minw, minh)
+            self.setMaximumSize(16777215, minh)
+        self.resize(max(self.width(), minw), max(h, minh))
+        self._measure()
+        self.update()
+
+    def save_size(self):
+        self.settings.setValue("width", self.width())
+        if self.search_panel.isVisible():
+            self.settings.setValue("search_h", self.height())
+
+    GRIP = 6  # px of the panel's edge, beyond the glow margin, that resize
+
+    def _edges(self, pos):
+        g = self.PANEL_MARGIN + self.GRIP
+        edges = Qt.Edge(0)
+        if pos.x() < g:
+            edges |= Qt.LeftEdge
+        elif pos.x() >= self.width() - g:
+            edges |= Qt.RightEdge
+        if self.minimumHeight() != self.maximumHeight():
+            if pos.y() < g:
+                edges |= Qt.TopEdge
+            elif pos.y() >= self.height() - g:
+                edges |= Qt.BottomEdge
+        return edges
+
+    @staticmethod
+    def _edge_cursor(edges):
+        horiz = edges & (Qt.LeftEdge | Qt.RightEdge)
+        vert = edges & (Qt.TopEdge | Qt.BottomEdge)
+        if horiz and vert:
+            fdiag = edges in (Qt.LeftEdge | Qt.TopEdge, Qt.RightEdge | Qt.BottomEdge)
+            return Qt.SizeFDiagCursor if fdiag else Qt.SizeBDiagCursor
+        if horiz:
+            return Qt.SizeHorCursor
+        if vert:
+            return Qt.SizeVerCursor
+        return None
+
+    def mouseMoveEvent(self, e):
+        if not e.buttons():
+            cur = self._edge_cursor(self._edges(e.position().toPoint()))
+            if cur is None:
+                self.unsetCursor()
+            else:
+                self.setCursor(cur)
+        super().mouseMoveEvent(e)
+
+    def leaveEvent(self, e):
+        self.unsetCursor()
+        super().leaveEvent(e)
+
     def _measure(self):
         # height of the "player" part (everything above the search panel)
         g = self.ctl_w.geometry()
@@ -1075,10 +1215,13 @@ class Player(QWidget):
     # ------------------------------------------------------------- window ui
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
+            wh = self.windowHandle()
+            edges = self._edges(e.position().toPoint())
+            if edges and wh is not None and wh.startSystemResize(edges):
+                return
             # Moving the remote by hand takes it off the YouTube window.
             if self.btn_dock.isChecked():
                 self.btn_dock.setChecked(False)
-            wh = self.windowHandle()
             if wh is not None:
                 wh.startSystemMove()
         elif e.button() == Qt.RightButton:
@@ -1119,9 +1262,7 @@ class Player(QWidget):
         self.btn_mini.setToolTip("Mod complet" if self.mini else "Mod compact")
         for w in (self.t_cur, self.t_dur):
             w.setVisible(not self.mini)
-        self.adjustSize()
-        self._measure()
-        self.update()
+        self._fit()
 
     def set_on_top(self, on):
         self.on_top = on
@@ -1132,13 +1273,13 @@ class Player(QWidget):
             self.show()
 
     def toggle_search(self, on):
+        if not on:
+            self.save_size()
         self.search_panel.setVisible(on)
         if on:
             self.search_edit.setFocus()
             self.search_edit.selectAll()
-        self.adjustSize()
-        self._measure()
-        self.update()
+        self._fit()
 
     def show_menu(self, pos):
         m = QMenu(self)
@@ -1226,6 +1367,9 @@ class Player(QWidget):
             super().keyPressEvent(e)
 
     def eventFilter(self, obj, ev):
+        # Leaving the resize edge for a child widget: back to the arrow.
+        if ev.type() == ev.Type.Enter and obj.parent() is self:
+            self.unsetCursor()
         if obj is self.results_view.viewport() and ev.type() == ev.Type.MouseButtonRelease:
             if ev.button() == Qt.MiddleButton:
                 idx = self.results_view.indexAt(ev.position().toPoint())
@@ -1236,6 +1380,7 @@ class Player(QWidget):
 
     def closeEvent(self, e):
         self.settings.setValue("pos", self.pos())
+        self.save_size()
         QApplication.quit()
 
     # ----------------------------------------------------------- networking
@@ -1413,6 +1558,42 @@ class Player(QWidget):
         if YUKITUBE_OPEN and QProcess.startDetached(YUKITUBE_OPEN, [url]):
             return
         QDesktopServices.openUrl(QUrl(url))
+
+    # ------------------------------------------------------------- account
+    def account_menu(self):
+        acc = self.cur_state.get("account") or {}
+        if not acc.get("loggedIn"):
+            self.open_url(SIGNIN_URL)
+            return
+        m = QMenu(self)
+        a = m.addAction("✓ Conectat cu contul Google")
+        a.setEnabled(False)
+        m.addSeparator()
+        m.addAction("Schimbă contul", lambda: self.open_url(SWITCH_URL))
+        m.addAction("Deconectare", lambda: self.open_url(SIGNOUT_URL))
+        m.exec(self.btn_account.mapToGlobal(QPoint(0, self.btn_account.height())))
+
+    def _sync_account(self, connected):
+        acc = (self.cur_state.get("account") or {}) if connected else {}
+        logged_in = acc.get("loggedIn")
+        url = acc.get("avatar") or ""
+        host = QUrl(url).host()
+        if not (url.startswith("https://") and host.endswith(AVATAR_HOSTS)):
+            url = ""
+        if url and url not in self.avatars:
+            self.avatars[url] = QPixmap()
+            rep = self.net.get(QNetworkRequest(QUrl(url)))
+            rep.finished.connect(lambda: self._on_avatar(rep, url))
+        self.btn_account.set_account(logged_in, self.avatars.get(url) if url else None)
+        self.btn_account.setToolTip("Cont Google conectat" if logged_in else "Conectează contul Google")
+
+    def _on_avatar(self, rep, url):
+        rep.deleteLater()
+        pm = QPixmap()
+        if rep.error() == QNetworkReply.NoError:
+            pm.loadFromData(bytes(rep.readAll().data()))
+        self.avatars[url] = pm
+        self.refresh_ui()
 
     def install_bridge(self):
         # Violentmonkey (in YukiTube's Firefox) catches *.user.js links and
@@ -1653,6 +1834,7 @@ class Player(QWidget):
             vol = st.get("volume", 100)
             self.vol.set_value((vol or 0) / 100)
             self._update_vol_icon(vol, st.get("muted"))
+        self._sync_account(connected)
         self._update_time()
         self.results_view.viewport().update()
 
@@ -1673,6 +1855,12 @@ def load_fonts():
 
 
 def main():
+    # The launchers' first-launch step: no window, just the profile.
+    if len(sys.argv) == 4 and sys.argv[1] == "--prepare-profile":
+        import provision
+        code = userscript_bytes().decode("utf-8")
+        return 0 if provision.install_bridge(sys.argv[2], sys.argv[3], code) else 1
+
     QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
@@ -1686,6 +1874,7 @@ def main():
     app.setFont(f)
 
     w = Player()
+    app.aboutToQuit.connect(w.save_size)
     if not w.ws.listen(PORT):
         # Started by the YukiTube launcher while one is already running.
         if "--quiet-if-running" in sys.argv:
@@ -1699,23 +1888,17 @@ def main():
         scr = QGuiApplication.screenAt(pos)
         if scr is not None:
             w.move(pos)
+    # Shown at a fixed size, so window managers that tile (Hyprland) float
+    # it from the start; then the size limits are loosened for resizing.
+    w.setFixedSize(w.size())
     w.show()
+
+    def loosen():
+        w.docker.float_self()
+        w._fit()
+    QTimer.singleShot(400, loosen)
     if w.settings.value("docked", "false") in (True, "true") and w.docker.available():
         QTimer.singleShot(600, lambda: w.btn_dock.setChecked(True))
-    # First YukiTube launch: once Firefox and Violentmonkey are up, offer the
-    # bridge userscript, unless a tab is already connected. The marker file
-    # (in YukiTube's profile) makes this happen only once.
-    if "--bridge-marker" in sys.argv[:-1]:
-        marker = sys.argv[sys.argv.index("--bridge-marker") + 1]
-        if not os.path.exists(marker):
-            def offer():
-                if not w.tabs:
-                    w.install_bridge()
-                try:
-                    open(marker, "a").close()
-                except OSError:
-                    pass
-            QTimer.singleShot(10000, offer)
     if os.environ.get("NEONTUBE_SCREENSHOT"):
         QTimer.singleShot(int(os.environ.get("NEONTUBE_SCREENSHOT_DELAY", "800")),
                           lambda: (w.grab().save(os.environ["NEONTUBE_SCREENSHOT"]), app.quit()))

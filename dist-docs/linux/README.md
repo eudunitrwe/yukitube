@@ -43,14 +43,15 @@ Pornește odată cu YukiTube și rămâne deschisă și după ce închizi fereas
 | 👍 | like (dacă ești autentificat) |
 | `1×` | viteza de redare |
 | `SKIP ▸` | sare peste reclamă, când YouTube permite |
-| 🔍 | caută pe YouTube; click pe rezultat îl redă în YukiTube |
+| 👤 | contul Google: te autentifici în YouTube; când ești conectat arată poza contului (meniu: schimbă contul, deconectare) |
+| 🔍 | caută pe YouTube (singurul loc de căutare: căsuța YouTube e ascunsă); click pe rezultat îl redă în YukiTube |
 | ⇕ / dublu-click pe fundal | mod compact / complet |
 | ⋮ / click dreapta pe fundal | mereu deasupra, transparență, „Conectează YukiTube”, ajutor |
 | Ctrl + rotiță | transparența ferestrei |
 
 Tastatură (cu telecomanda activă): `Space`/`K` play-pauză · `S` stop · `D` lipește/dezlipește · `←` `→` ±5 s · `J` −10 s · `↑` `↓` volum · `M` mut · `L` repetă · `N` următorul · `P` anterior · `Ctrl+F` sau `/` caută · `Esc` închide căutarea.
 
-Pe Hyprland, ca telecomanda să plutească deasupra în loc să intre în tiling, adaugă în `~/.config/hypr/hyprland.conf` o regulă pentru clasa `yukitube-remote`, de exemplu `windowrule = float, class:^(yukitube-remote)$` și `windowrule = pin, class:^(yukitube-remote)$` (sintaxa exactă depinde de versiunea Hyprland).
+Telecomanda se redimensionează trăgând de margini: lățimea oricând, înălțimea cât e deschisă căutarea (mai multe rezultate). Mărimea se ține minte. Pe Hyprland telecomanda plutește singură (nu intră în tiling); ca să rămână și pe toate workspace-urile, poți adăuga `windowrule = pin, class:^(yukitube-remote)$` (sintaxa exactă depinde de versiunea Hyprland).
 
 ## Scurtături în fereastra YouTube
 

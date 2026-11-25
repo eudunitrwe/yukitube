@@ -1,4 +1,4 @@
-# Instalare YukiTube 0.3.1 pe Linux
+# Instalare YukiTube 0.4.0 pe Linux
 
 Arhiva conține YukiTube: fereastra YouTube și telecomanda ei (fostul NeonTube), ca o singură aplicație. Funcționează pe Linux 64-bit (x86_64) cu glibc 2.34 sau mai nou (Arch Linux, Ubuntu 22.04+, Debian 12+, Fedora 35+).
 
@@ -22,8 +22,8 @@ Setările vechiului NeonTube (`~/.config/NeonTube/`) sunt preluate automat de te
 ## Pasul 1: dezarhivează
 
 ```sh
-tar -xzf yukitube-0.3.1-linux-x86_64.tar.gz
-cd yukitube-0.3.1-linux-x86_64
+tar -xzf yukitube-0.4.0-linux-x86_64.tar.gz
+cd yukitube-0.4.0-linux-x86_64
 ```
 
 ## Pasul 2: alege o variantă de instalare
@@ -33,7 +33,7 @@ Folosește **doar una** dintre ele, altfel YukiTube apare de două ori în launc
 ### Varianta A: Arch Linux (pachet de sistem, recomandat)
 
 ```sh
-sudo pacman -U yukitube-0.3.1-1-any.pkg.tar.zst
+sudo pacman -U yukitube-0.4.0-1-any.pkg.tar.zst
 ```
 
 Pacman instalează și dependențele (Firefox, curl, jq, Python, PySide6). Telecomanda rulează pe PySide6-ul sistemului. Dezinstalare:
@@ -56,14 +56,13 @@ Pune fișierele în `~/.local/bin` și `~/.local/share` (telecomanda e inclusă 
 
 ## Pasul 3: prima pornire
 
-1. Caută „YukiTube” în launcher și pornește-l. Se deschid fereastra YouTube și telecomanda YukiTube.
-2. După circa 10 secunde, în fereastra YouTube apare pagina **Violentmonkey** pentru „YukiTube Bridge”. Apasă **Install / Instalează**.
-3. Închide pagina Violentmonkey cu butonul **Close / Închide** sau cu `Ctrl+W`. Revii la YouTube.
-4. Pornește un videoclip. Punctul de lângă logo-ul telecomenzii devine **verde**: gata.
+1. Caută „YukiTube” în launcher și pornește-l. Prima dată durează câteva secunde în plus: YukiTube își pregătește singur profilul și puntea, fără să-ți ceară nimic. Apoi se deschid fereastra YouTube și telecomanda YukiTube.
+2. Pornește un videoclip. Punctul de lângă logo-ul telecomenzii devine **verde**: gata.
+3. Opțional: apasă **butonul de cont** (👤) din telecomandă ca să te autentifici cu contul Google.
 
 Dacă ai avut NeonTube, în Violentmonkey pot rămâne punți vechi („NeonTube Bridge…”). Telecomanda le ignoră, dar le poți șterge din panoul Violentmonkey (iconița lui → ⚙ → Installed scripts → coșul de gunoi).
 
-Pagina de la pasul 2 apare o singură dată. Dacă ai închis-o fără să instalezi, sau punctul nu se face verde: în telecomandă, meniul **⋮ → „Conectează YukiTube (instalează puntea)”**, apoi reîncarcă YouTube cu `F5`.
+Dacă punctul nu se face verde: închide YukiTube și pornește-l din nou (pregătirea se reia singură). Dacă tot nu merge: în telecomandă, meniul **⋮ → „Conectează YukiTube (instalează puntea)”**, apasă **Install** în pagina Violentmonkey, apoi reîncarcă YouTube cu `F5`.
 
 ## Dacă ceva nu merge
 

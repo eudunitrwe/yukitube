@@ -1,7 +1,7 @@
 (() => {
   // Sent with every message: the remote only takes orders from bridges that
   // say which version they are, so copies left over from NeonTube stay idle.
-  const BRIDGE = "1.4.0";
+  const BRIDGE = "1.5.0";
   const URL_HTTP = "http://127.0.0.1:8975/nt/up";
   const URL_WS = "ws://127.0.0.1:8975";
   // The same key across reloads of this tab (sessionStorage is per tab), so

@@ -55,7 +55,7 @@ To uninstall: run `Sterge-scurtaturi.cmd`, then delete the `YukiTube` folder.
 
 ### First run (both systems)
 
-After ~10 seconds a **Violentmonkey** page for "YukiTube Bridge" opens — click **Install**, then close it with `Ctrl+W`. Start a video: the dot next to the remote's logo turns **green** and you're done. If you missed it: remote menu **⋮ → "Conectează YukiTube"**, then press `F5` in YouTube.
+Nothing to click. The very first launch takes a few seconds longer: YukiTube quietly installs the "YukiTube Bridge" userscript into Violentmonkey (through an invisible, headless Firefox) before the window opens. Start a video: the dot next to the remote's logo turns **green**. To sign in to YouTube, click the **account button** (👤) in the remote. Music is searched from the remote (🔍 or `Ctrl+F`); YouTube's own search box is hidden. Drag the remote's edges to resize it.
 
 Full step-by-step instructions (in Romanian) are inside each archive: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -100,7 +100,7 @@ Dezinstalare: rulează `Sterge-scurtaturi.cmd`, apoi șterge folderul `YukiTube`
 
 ### Prima pornire (ambele sisteme)
 
-După circa 10 secunde apare pagina **Violentmonkey** pentru „YukiTube Bridge”: apasă **Instalează (Install)**, apoi închide-o cu `Ctrl+W`. Pornește un videoclip: punctul de lângă logo-ul telecomenzii devine **verde** și gata. Dacă ai ratat pagina: în telecomandă, **⋮ → „Conectează YukiTube”**, apoi `F5` în YouTube.
+Nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus: YukiTube instalează singur scriptul „YukiTube Bridge” în Violentmonkey (printr-un Firefox invizibil, headless), înainte să se deschidă fereastra. Pornește un videoclip: punctul de lângă logo-ul telecomenzii devine **verde**. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤) din telecomandă. Muzica se caută din telecomandă (🔍 sau `Ctrl+F`); căsuța de căutare a YouTube e ascunsă. Telecomanda se redimensionează trăgând de margini.
 
 Instrucțiunile complete, pas cu pas, sunt în fiecare arhivă: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -133,7 +133,7 @@ telecomanda (remote/app, Python + PySide6) ── 127.0.0.1:8975 ──  YukiTub
 
 Puntea își trimite versiunea (`bridge`) la fiecare mesaj; telecomanda nu dă comenzi punților fără versiune (cele rămase de la NeonTube și primele YukiTube), care controlau YouTube într-un fel care nu merge în Firefox-ul YukiTube.
 
-De ce userscript și nu extensia din `remote/browser/extension`: Firefox-ul obișnuit refuză extensiile nesemnate, iar puntea trebuie să ruleze în Firefox-ul lui YukiTube. Violentmonkey e semnat pe AMO, așa că totul merge pe un Firefox normal, fără setări de dezvoltator. La prima pornire, telecomanda deschide `http://127.0.0.1:8975/yukitube.user.js`; Violentmonkey prinde link-ul și cere un singur click pe „Install”. Un marcaj în profil (`.yukitube-bridge-offered`) face ca asta să se întâmple o singură dată; din meniul telecomenzii (⋮ → „Conectează YukiTube”) se poate repeta oricând.
+De ce userscript și nu extensia din `remote/browser/extension`: Firefox-ul obișnuit refuză extensiile nesemnate, iar puntea trebuie să ruleze în Firefox-ul lui YukiTube. Violentmonkey e semnat pe AMO, așa că totul merge pe un Firefox normal, fără setări de dezvoltator. La prima pornire, lansatorul rulează `yukitube-remote --prepare-profile <firefox> <profil>` (`remote/app/provision.py`) înainte să deschidă fereastra: pornește Firefox **headless** pe profil, cu Marionette (`--marionette`, portul ales de Firefox prin `marionette.port = 0` din `user.js`), deschide pagina de opțiuni a Violentmonkey și îi trimite userscript-ul prin comanda lui internă `ParseScript` (aceeași pe care o folosește butonul „Install”), apoi închide Firefox. Nu apare nicio pagină de confirmare. Un marcaj în profil (`.yukitube-bridge-installed`) face ca asta să se întâmple o singură dată; dacă nu a reușit (jurnal: `~/.local/state/yukitube/prepare.log`), se reîncearcă la următoarea pornire. Din meniul telecomenzii (⋮ → „Conectează YukiTube”) se poate instala și manual, prin pagina Violentmonkey.
 
 În Firefox, Violentmonkey rulează puntea izolată de pagină, iar YouTube ignoră `video.play()`/`pause()` și click-urile simulate. De aceea puntea folosește API-ul player-ului YouTube prin `unsafeWindow`, deschide videoclipurile prin navigarea internă YouTube (`yt-navigate`, fără reîncărcare) și își păstrează identificatorul tab-ului în `sessionStorage`. YouTube NonStop amână orice pauză care nu urmează unui click sau unei taste în pagină, așa că o pauză venită de la telecomandă e terminată cu pauza originală pe care NonStop o păstrează (`yns_pause`). `user.js` permite redarea automată, ca un videoclip deschis din telecomandă să pornească singur.
 

@@ -60,6 +60,14 @@ class _Hyprland:
             return self._ask("dispatch " + lua.replace("@W", f'window = "address:{addr}"'))
         return self._ask("dispatch " + classic.replace("@W", f"address:{addr}"))
 
+    def float_self(self):
+        """The remote is resizable, so Hyprland would tile it like any other
+        window; it floats instead, as it did when its size was fixed."""
+        clients = json.loads(self._ask("j/clients"))
+        me = next((c for c in clients if c.get("pid") == self.pid and c.get("mapped")), None)
+        if me and not me.get("floating"):
+            self._dispatch(me["address"], 'hl.dsp.window.float({ action = "enable", @W })', "setfloating @W")
+
     def follow(self, widget):
         clients = json.loads(self._ask("j/clients"))
         me = next((c for c in clients if c.get("pid") == self.pid and c.get("mapped")), None)
@@ -192,6 +200,14 @@ class Docker(QObject):
             self.timer.start()
         else:
             self.timer.stop()
+
+    def float_self(self):
+        f = getattr(self.impl, "float_self", None)
+        if f:
+            try:
+                f()
+            except Exception as e:  # noqa: BLE001
+                print("dock:", e, file=sys.stderr)
 
     def tick(self):
         try:

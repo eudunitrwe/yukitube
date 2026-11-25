@@ -1,4 +1,4 @@
-Instalare YukiTube 0.3.1 pe Windows 10 / 11
+Instalare YukiTube 0.4.0 pe Windows 10 / 11
 ===========================================
 
 Nu ai nevoie de Firefox, de Python și nici de drepturi de administrator:
@@ -15,7 +15,7 @@ porni telecomanda. Setările telecomenzii rămân și sunt folosite mai departe.
 
 1. DEZARHIVEAZĂ
 
-Click dreapta pe yukitube-0.3.1-windows-x64.zip > „Extract All...”
+Click dreapta pe yukitube-0.4.0-windows-x64.zip > „Extract All...”
 (Extrage tot) și alege unde să pună folderul: de exemplu Documente,
 Desktop sau un stick USB.
 
@@ -43,19 +43,18 @@ Dublu-click pe YukiTube.exe (sau pe scurtătura YukiTube).
   a. Dacă Windows afișează „Windows protected your PC” (SmartScreen),
      apasă „More info” (Mai multe informații), apoi „Run anyway”
      (Execută oricum). Apare doar la prima pornire.
-  b. Se deschid fereastra YouTube și telecomanda YukiTube. Prima pornire
-     durează câteva secunde în plus: YukiTube își creează profilul în
-     folderul Data și instalează extensiile.
-  c. După circa 10 secunde apare pagina Violentmonkey pentru
-     „YukiTube Bridge”. Apasă „Instalează” (Install).
-  d. Închide pagina Violentmonkey cu „Închide” (Close) sau cu Ctrl+W.
-     Revii la YouTube.
-  e. Pornește un videoclip. Punctul de lângă logo-ul telecomenzii devine
+  b. Prima pornire durează câteva secunde în plus: YukiTube își creează
+     profilul în folderul Data, instalează extensiile și puntea, fără să-ți
+     ceară nimic. Apoi se deschid fereastra YouTube și telecomanda.
+  c. Pornește un videoclip. Punctul de lângă logo-ul telecomenzii devine
      verde: gata.
+  d. Opțional: apasă butonul de cont (omulețul) din telecomandă ca să te
+     autentifici cu contul Google.
 
-Pagina de la pasul c apare o singură dată. Dacă ai închis-o fără să
-instalezi, sau punctul nu se face verde: în telecomandă, meniul ⋮ >
-„Conectează YukiTube (instalează puntea)”, apoi reîncarcă YouTube cu F5.
+Dacă punctul nu se face verde: închide YukiTube și pornește-l din nou
+(pregătirea se reia singură). Dacă tot nu merge: în telecomandă, meniul ⋮ >
+„Conectează YukiTube (instalează puntea)”, apasă „Install” în pagina
+Violentmonkey, apoi reîncarcă YouTube cu F5.
 
 
 MUTARE PE ALT CALCULATOR

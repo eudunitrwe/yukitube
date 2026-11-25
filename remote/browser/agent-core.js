@@ -67,6 +67,22 @@ function createNeonAgent(send) {
     );
   }
 
+  // Whether YouTube is signed in to a Google account (null: cannot tell
+  // yet), and the account's avatar for the remote's account button.
+  function account() {
+    let loggedIn = null;
+    try {
+      const v = pageWin.ytcfg && typeof pageWin.ytcfg.get === "function" ? pageWin.ytcfg.get("LOGGED_IN") : undefined;
+      if (typeof v === "boolean") loggedIn = v;
+    } catch (e) {}
+    const avatar = $("#avatar-btn img, ytmusic-settings-button img, ytd-topbar-menu-button-renderer img#img");
+    if (loggedIn === null) {
+      if (avatar) loggedIn = true;
+      else if ($('a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/v3/signin"]')) loggedIn = false;
+    }
+    return { loggedIn, avatar: loggedIn && avatar && /^https:/.test(avatar.src || "") ? avatar.src : "" };
+  }
+
   function state() {
     const v = video();
     const m = meta();
@@ -99,6 +115,7 @@ function createNeonAgent(send) {
       hasNext: isMusic || visible(nextBtn) || !!id,
       hasPrev: visible(prevBtn),
       lastPlayed,
+      account: account(),
       host: location.hostname,
       url: location.href,
       ua: navigator.userAgent,

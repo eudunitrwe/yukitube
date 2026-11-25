@@ -10,7 +10,9 @@ func TestResolve(t *testing.T) {
 		"muzică de studiu":                       "https://www.youtube.com/results?search_query=muzic%C4%83+de+studiu",
 		"https://evil.com/youtube.com":           "https://www.youtube.com/results?search_query=https%3A%2F%2Fevil.com%2Fyoutube.com",
 		"http://127.0.0.1:8975/yukitube.user.js": "http://127.0.0.1:8975/yukitube.user.js",
-		"http://127.0.0.1:8976/x":                "https://www.youtube.com/results?search_query=http%3A%2F%2F127.0.0.1%3A8976%2Fx",
+		"https://accounts.google.com/ServiceLogin?service=youtube": "https://accounts.google.com/ServiceLogin?service=youtube",
+		"http://accounts.google.com/x":                             "https://www.youtube.com/results?search_query=http%3A%2F%2Faccounts.google.com%2Fx",
+		"http://127.0.0.1:8976/x":                                  "https://www.youtube.com/results?search_query=http%3A%2F%2F127.0.0.1%3A8976%2Fx",
 	}
 	for input, want := range cases {
 		if got := resolve(input); got != want {

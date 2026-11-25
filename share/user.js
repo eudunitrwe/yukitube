@@ -34,6 +34,12 @@ user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 user_pref("media.autoplay.default", 0);
 user_pref("media.autoplay.blocking_policy", 0);
 
+// On the first launch YukiTube starts this Firefox once, headless, with
+// --marionette to put its bridge userscript into Violentmonkey; port 0 lets
+// it pick a free port (written to MarionetteActivePort). Without
+// --marionette this does nothing.
+user_pref("marionette.port", 0);
+
 // Dark, like the desktop.
 user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
 user_pref("layout.css.prefers-color-scheme.content-override", 0);

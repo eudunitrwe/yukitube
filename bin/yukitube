@@ -82,22 +82,31 @@ done <"$share/addons.tsv"
 
 cp "$share/user.js" "$profile/user.js"
 
-# The remote talks to YouTube through a userscript in Violentmonkey. Once,
-# on the first launch, the remote offers it and Violentmonkey asks to
-# install it; the marker records that.
-if [[ ${YUKITUBE_REMOTE:-1} != 0 ]]; then
-  start_remote --bridge-marker "$profile/.yukitube-bridge-offered" || true
-fi
-
 # The retrowave look: the window (userChrome) and YouTube itself (userContent).
 cp "$share/userChrome.css" "$share/userContent.css" "$profile/chrome/"
 
-# A YouTube link, or the remote's own address (the bridge userscript it
-# offers), opens as is; anything else is a search.
+if [[ ${YUKITUBE_REMOTE:-1} != 0 ]]; then
+  start_remote || true
+fi
+
+# The remote talks to YouTube through a userscript in Violentmonkey. On the
+# first launch the remote puts it there itself, through a Firefox that runs
+# headless for a few seconds, so no Install page ever shows. It is retried at
+# the next launch if it did not work; the marker records that it did.
+if ((${#remote[@]})) && [[ ! -f $profile/.yukitube-bridge-installed ]]; then
+  command -v notify-send >/dev/null && notify-send -a YukiTube -t 4000 "YukiTube" "Prima pornire: pregătesc YukiTube…" || true
+  log=${XDG_STATE_HOME:-$HOME/.local/state}/yukitube/prepare.log
+  mkdir -p "$(dirname "$log")"
+  "${remote[@]}" --prepare-profile "$(command -v firefox)" "$profile" >>"$log" 2>&1 </dev/null || true
+fi
+
+# A YouTube link, the remote's own address (the bridge userscript it
+# offers), or Google's sign-in pages (the remote's account button) open as
+# is; anything else is a search.
 url=
 if (($#)); then
   input="$*"
-  if [[ $input =~ ^http://127\.0\.0\.1:8975/ ]]; then
+  if [[ $input =~ ^http://127\.0\.0\.1:8975/ || $input =~ ^https://accounts\.google\.com/ ]]; then
     url=$input
   elif [[ $input =~ ^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$) ]]; then
     [[ $input == http* ]] && url=$input || url="https://$input"

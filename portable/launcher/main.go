@@ -73,12 +73,18 @@ func run(exe string, args []string) error {
 		}
 	}
 
-	// The remote talks to YouTube through a userscript in Violentmonkey.
-	// Once, on the first launch, the remote offers it and Violentmonkey asks
-	// to install it; the marker records that. A missing remote is not a
-	// reason to keep YouTube from opening.
+	// A missing remote is not a reason to keep YouTube from opening.
 	if os.Getenv("YUKITUBE_REMOTE") != "0" {
-		startRemote(exe, remote, "--bridge-marker", filepath.Join(profile, ".yukitube-bridge-offered"))
+		startRemote(exe, remote)
+	}
+
+	// The remote talks to YouTube through a userscript in Violentmonkey. On
+	// the first launch the remote puts it there itself, through this Firefox
+	// running headless for a few seconds, so no Install page ever shows. It
+	// is retried at the next launch if it did not work; the marker records
+	// that it did.
+	if _, err := os.Stat(filepath.Join(profile, ".yukitube-bridge-installed")); err != nil {
+		prepareProfile(remote, firefox, profile)
 	}
 
 	// A second launch reaches the running window through Firefox's own
@@ -129,6 +135,26 @@ func startRemote(exe, remote string, extra ...string) error {
 	return cmd.Process.Release()
 }
 
+// Runs the remote's --prepare-profile and waits for it, at most two minutes.
+func prepareProfile(remote, firefox, profile string) {
+	python := filepath.Join(remote, "runtime", pythonName)
+	if _, err := os.Stat(python); err != nil {
+		return
+	}
+	cmd := exec.Command(python, filepath.Join(remote, "app", "yukitube_remote.py"), "--prepare-profile", firefox, profile)
+	cmd.Dir = remote
+	if err := cmd.Start(); err != nil {
+		return
+	}
+	done := make(chan struct{})
+	go func() { cmd.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Minute):
+		cmd.Process.Kill()
+	}
+}
+
 // Add-ons are copied in once, after checking them against addons.tsv;
 // after that Firefox keeps them updated itself.
 func installAddons(share, extensions string) error {
@@ -168,14 +194,15 @@ func installAddons(share, extensions string) error {
 
 var youtubeLink = regexp.MustCompile(`(?i)^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$)`)
 
-// A YouTube link, or the remote's own address (the bridge userscript it
-// offers), opens as is; anything else is a search.
+// A YouTube link, the remote's own address (the bridge userscript it
+// offers), or Google's sign-in pages (the remote's account button) open as
+// is; anything else is a search.
 func resolve(input string) string {
 	input = strings.TrimSpace(input)
 	switch {
 	case input == "":
 		return ""
-	case strings.HasPrefix(input, "http://127.0.0.1:8975/"):
+	case strings.HasPrefix(input, "http://127.0.0.1:8975/"), strings.HasPrefix(input, "https://accounts.google.com/"):
 		return input
 	case youtubeLink.MatchString(input):
 		if strings.HasPrefix(strings.ToLower(input), "http") {
