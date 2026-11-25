@@ -13,6 +13,13 @@ const (
 	pythonName  = "python3"
 )
 
+func uiLanguage() string {
+	if l := os.Getenv("YUKITUBE_LANG"); l != "" {
+		return l
+	}
+	return "en"
+}
+
 func showError(message string) {
 	fmt.Fprintln(os.Stderr, "yukitube:", message)
 }

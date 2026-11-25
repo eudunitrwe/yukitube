@@ -13,6 +13,7 @@ Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude 
 | --- | --- |
 | 🐧 Arch Linux | `yukitube-<version>-1-any.pkg.tar.zst` (small, uses the system's Python/PySide6) |
 | 🐧 Linux (x86_64, any distro) | `yukitube-<version>-linux-x86_64.tar.xz` |
+| 🪟 Windows 10/11 (x64, installer) | `yukitube-<version>-windows-x64-setup.exe` |
 | 🪟 Windows 10/11 (x64, portable) | `yukitube-<version>-windows-x64.zip` |
 
 ---
@@ -45,17 +46,15 @@ Use only one option. Then launch **YukiTube** from your app launcher or run `yuk
 
 ### Install on Windows 10/11
 
-Nothing to install — Firefox and the remote are inside the archive, no admin rights needed.
+Firefox and the player are included; you need nothing else. If SmartScreen says "Windows protected your PC", click **More info → Run anyway**.
 
-1. Right-click `yukitube-<version>-windows-x64.zip` → **Extract All…** (e.g. to Documents, Desktop or a USB stick — not `C:\Program Files`).
-2. Optional: double-click **`Creeaza-scurtaturi.cmd`** in the extracted `YukiTube` folder to add Start menu and Desktop shortcuts.
-3. Double-click **`YukiTube.exe`**. If SmartScreen says "Windows protected your PC", click **More info → Run anyway** (first run only).
+**Option A — installer (recommended):** run `yukitube-<version>-windows-x64-setup.exe`. It installs YukiTube in `C:\Program Files (x86)\YukiTube` and puts a **YukiTube** shortcut on the Desktop and in the Start menu. Your profile (sign-in, history) lives in `%LOCALAPPDATA%\YukiTube`. Uninstall from Settings → Apps.
 
-To uninstall: run `Sterge-scurtaturi.cmd`, then delete the `YukiTube` folder.
+**Option B — portable:** right-click `yukitube-<version>-windows-x64.zip` → **Extract All…** (e.g. to Documents or a USB stick), then double-click **`YukiTube.exe`**. Optional: `Creeaza-scurtaturi.cmd` adds shortcuts. The profile stays in the folder (`Data\`); to uninstall, run `Sterge-scurtaturi.cmd` and delete the folder.
 
 ### First run (both systems)
 
-Only the remote opens; nothing to click. The very first launch takes a few seconds longer ("Pregătesc YukiTube…") while YukiTube sets itself up. Search with 🔍 (or `Ctrl+F`) and click a result to play it. To sign in to YouTube, click the **account button** (👤): the YouTube window opens on Google's sign-in page; close it when you're done. The ↗ button (or menu ⋮) shows or hides the YouTube window. Drag the remote's edges to resize it. Closing the remote stops YouTube too.
+Only the remote opens; nothing to click. The very first launch takes a few seconds longer ("Preparing YukiTube…") while YukiTube sets itself up. Search with 🔍 (or `Ctrl+F`) and click a result to play it. To sign in to YouTube, click the **account button** (👤): the YouTube window opens on Google's sign-in page; close it when you're done. The ↗ button (or menu ⋮) shows or hides the YouTube window. The player starts in English; menu ⋮ → **Language** switches to Română or Русский. Closing the player stops YouTube too.
 
 Full step-by-step instructions (in Romanian) are inside each archive: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -89,17 +88,15 @@ Folosește doar una dintre variante. Apoi pornește **YukiTube** din launcher sa
 
 ### Instalare pe Windows 10/11
 
-Nu instalezi nimic: Firefox și telecomanda sunt în arhivă, nu ai nevoie de drepturi de administrator.
+Firefox și telecomanda sunt incluse; nu-ți mai trebuie nimic. Dacă SmartScreen afișează „Windows protected your PC”, apasă **More info → Run anyway**.
 
-1. Click dreapta pe `yukitube-<versiune>-windows-x64.zip` → **Extract All… (Extrage tot)**, de exemplu în Documente, pe Desktop sau pe un stick USB (nu în `C:\Program Files`).
-2. Opțional: dublu-click pe **`Creeaza-scurtaturi.cmd`** în folderul `YukiTube` dezarhivat, pentru scurtături în meniul Start și pe Desktop.
-3. Dublu-click pe **`YukiTube.exe`**. Dacă SmartScreen afișează „Windows protected your PC”, apasă **More info → Run anyway** (doar la prima pornire).
+**Varianta A — installer (recomandat):** rulează `yukitube-<versiune>-windows-x64-setup.exe`. Instalează YukiTube în `C:\Program Files (x86)\YukiTube` și pune o scurtătură **YukiTube** pe Desktop și în meniul Start. Profilul tău (autentificare, istoric) stă în `%LOCALAPPDATA%\YukiTube`. Dezinstalare din Setări → Aplicații.
 
-Dezinstalare: rulează `Sterge-scurtaturi.cmd`, apoi șterge folderul `YukiTube`.
+**Varianta B — portabil:** click dreapta pe `yukitube-<versiune>-windows-x64.zip` → **Extract All…** (de exemplu în Documente sau pe un stick USB), apoi dublu-click pe **`YukiTube.exe`**. Opțional: `Creeaza-scurtaturi.cmd` pune scurtături. Profilul stă în folder (`Data\`); dezinstalare: rulează `Sterge-scurtaturi.cmd` și șterge folderul.
 
 ### Prima pornire (ambele sisteme)
 
-Se deschide doar telecomanda; nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus („Pregătesc YukiTube…”), cât YukiTube se pregătește singur. Caută cu 🔍 (sau `Ctrl+F`) și apasă pe un rezultat ca să-l redai. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤): se deschide fereastra YouTube la autentificarea Google; închide-o când ai terminat. Butonul ↗ (sau meniul ⋮) arată sau ascunde fereastra YouTube. Telecomanda se redimensionează trăgând de margini. Când închizi telecomanda, se oprește și YouTube.
+Se deschide doar telecomanda; nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus („Preparing YukiTube…”), cât YukiTube se pregătește singur. Caută cu 🔍 (sau `Ctrl+F`) și apasă pe un rezultat ca să-l redai. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤): se deschide fereastra YouTube la autentificarea Google; închide-o când ai terminat. Butonul ↗ (sau meniul ⋮) arată sau ascunde fereastra YouTube. Telecomanda pornește în engleză; meniul ⋮ → **Language / Limba** o trece în română sau rusă. Când închizi telecomanda, se oprește și YouTube.
 
 Instrucțiunile complete, pas cu pas, sunt în fiecare arhivă: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -203,5 +200,6 @@ Creează în `dist/` fișierele release-ului, plus `yukitube-<versiune>-SHA256SU
 - `yukitube-<versiune>-1-any.pkg.tar.zst`: pachetul Arch (telecomanda din surse, pe Python-ul și PySide6-ul sistemului).
 - `yukitube-<versiune>-linux-x86_64.tar.xz`: lansatorul, telecomanda compilată cu PyInstaller, `install.sh` pentru orice distribuție (fără sudo), `README.md`, `INSTALARE.md`.
 - `yukitube-<versiune>-windows-x64.zip`: varianta portabilă, folderul `YukiTube\` cu `YukiTube.exe`, un Firefox pentru Windows în `App\Firefox` (fără actualizator, crash reporter, AI local și WebGPU), telecomanda în `App\Remote` (Python embeddable + PySide6), extensiile, `Creeaza-scurtaturi.cmd`, `README.txt`, `INSTALARE.txt`. Nu instalează nimic; profilul stă în `Data\`, lângă exe.
+- `yukitube-<versiune>-windows-x64-setup.exe`: același folder, ca installer NSIS (`windows/installer.nsi`) în `C:\Program Files (x86)\YukiTube`, cu scurtături pe Desktop și în meniul Start; profilul în `%LOCALAPPDATA%\YukiTube` (fișierul `App\installed` îi spune lui `YukiTube.exe` asta).
 
 Versiunile fixate (Firefox, Python, PySide6, Go) și hash-urile lor sunt la începutul lui `bin/dist`. E nevoie de `uv`, `mise` (pentru Go), `makepkg`, `zip`, `bsdtar`, `curl` și `binutils`. Descărcările stau în `~/.cache/yukitube`.

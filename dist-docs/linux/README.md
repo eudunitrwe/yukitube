@@ -42,7 +42,7 @@ Dacă YukiTube rulează deja, link-ul sau căutarea ajung în telecomanda deschi
 | 🔍 | caută pe YouTube; click pe rezultat îl redă |
 | ↗ | arată / ascunde fereastra YouTube |
 | ⇕ / dublu-click pe fundal | mod compact / complet |
-| ⋮ / click dreapta pe fundal | mereu deasupra, skin, transparență, ajutor |
+| ⋮ / click dreapta pe fundal | mereu deasupra, skin, limba (English / Română / Русский; implicit engleză), transparență, ajutor |
 | Ctrl + rotiță | transparența ferestrei (implicit 55%) |
 
 Tastatură (cu telecomanda activă): `Space`/`K` play-pauză · `S` stop · `←` `→` ±5 s · `J` −10 s · `↑` `↓` volum · `M` mut · `L` repetă · `N` următorul · `P` anterior · `Ctrl+F` sau `/` caută · `Esc` închide căutarea.

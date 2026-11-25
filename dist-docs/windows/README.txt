@@ -40,7 +40,7 @@ CE E ÎN FOLDER
 
 TELECOMANDA
 
-Când o închizi (⋮ > Ieșire, sau X), se oprește și YouTube. Punctul de
+Când o închizi (⋮ > Quit / Ieșire, sau X), se oprește și YouTube. Punctul de
 lângă logo devine verde când YouTube e conectat.
 
   ▶ / ❚❚           play / pauză
@@ -56,7 +56,8 @@ lângă logo devine verde când YouTube e conectat.
   paleta            skin-ul: Retrowave (neon) sau Clasic (anii ’90)
   🔍                caută pe YouTube; click pe rezultat îl redă
   ↗                 arată / ascunde fereastra YouTube
-  ⋮                 mereu deasupra, skin, transparență, ajutor
+  ⋮                 mereu deasupra, skin, limba (English / Română /
+                    Русский; implicit engleză), transparență, ajutor
   Ctrl + rotiță     transparența ferestrei (implicit 55%)
 
 Tastatură (cu telecomanda activă): Space/K play-pauză, S stop, ← → ±5 s,

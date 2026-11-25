@@ -24,6 +24,47 @@ PORT = os.environ.get("YUKITUBE_PORT") or "8975"
 USERSCRIPT_URL = f"http://127.0.0.1:{PORT}/yukitube.user.js"
 MARKER = ".yukitube-bridge-installed"  # holds the installed bridge's version
 TIMEOUT = 60
+WIN = sys.platform == "win32"
+_NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW: no console flashing up on Windows
+
+# On Windows, firefox.exe is a small launcher that starts the real browser as
+# a separate process and exits at once. With -wait-for-browser it stays until
+# the browser exits, so the process started is the one to watch.
+WIN_ARGS = ["-wait-for-browser"] if WIN else []
+
+
+def win_kill_tree(pid, force=True):
+    """Windows: ends a process and everything it started. Without force, the
+    windows get a normal close (the browser saves and exits)."""
+    if not pid:
+        return
+    cmd = ["taskkill", "/PID", str(pid), "/T"] + (["/F"] if force else [])
+    try:
+        subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       creationflags=_NO_WINDOW, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def win_free_profile(profile):
+    """Windows: ends any Firefox still running on `profile` (one left behind
+    when the remote did not exit cleanly). Only processes whose command line
+    names this profile are touched, never the user's own Firefox."""
+    prof = os.path.normcase(os.path.abspath(profile)).replace("'", "''")
+    script = (
+        "Get-CimInstance Win32_Process -Filter \"Name='firefox.exe'\" | "
+        f"Where-Object {{ $_.CommandLine -and $_.CommandLine.ToLower().Contains('{prof.lower()}') }} | "
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       creationflags=_NO_WINDOW, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for _ in range(50):  # the lock goes with the process
+        if not profile_in_use(profile):
+            return
+        time.sleep(0.1)
 
 
 def bridge_version(code):
@@ -174,6 +215,8 @@ def install_bridge(firefox, profile, code, log=print):
     when it is installed (or already was), False when it could not be."""
     if is_current(profile, code):
         return True
+    if profile_in_use(profile) and WIN:
+        win_free_profile(profile)
     if profile_in_use(profile):
         log("profile in use; skipping")
         return False
@@ -187,9 +230,10 @@ def install_bridge(firefox, profile, code, log=print):
     # this variable; the --remote-allow-system-access flag alone is refused.
     env = dict(os.environ, MOZ_HEADLESS="1", MOZ_REMOTE_ALLOW_SYSTEM_ACCESS="1")
     env.pop("MOZ_MARIONETTE", None)
-    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    flags = _NO_WINDOW if WIN else 0
     proc = subprocess.Popen(
-        [firefox, "--headless", "--marionette", "--remote-allow-system-access", "--new-instance", "--profile", profile, "about:blank"],
+        [firefox] + WIN_ARGS + ["--headless", "--marionette", "--remote-allow-system-access", "--new-instance",
+                                "--profile", profile, "about:blank"],
         env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         creationflags=flags)
     mn = None
@@ -240,6 +284,10 @@ def install_bridge(firefox, profile, code, log=print):
     finally:
         if mn:
             mn.close()
+        if WIN:
+            # The browser may outlive the launcher; nothing may keep the profile.
+            win_kill_tree(proc.pid)
+            win_free_profile(profile) if profile_in_use(profile) else None
         if proc.poll() is None:
             proc.terminate()
             try:

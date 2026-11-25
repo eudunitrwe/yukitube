@@ -15,7 +15,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -51,27 +50,27 @@ func run(exe string, args []string) error {
 
 	firefox := filepath.Join(app, "Firefox", firefoxName)
 	if _, err := os.Stat(firefox); err != nil {
-		return fmt.Errorf("Firefox lipsește din %s.\n\nDezarhivează din nou toată arhiva YukiTube, apoi pornește YukiTube.exe din folderul dezarhivat.", filepath.Dir(firefox))
+		return msg("firefox_missing", filepath.Dir(firefox))
 	}
 	share := filepath.Join(app, "share")
-	profile := filepath.Join(root, "Data", "profile")
+	profile := filepath.Join(dataDir(root), "profile")
 
 	for _, dir := range []string{filepath.Join(profile, "extensions"), filepath.Join(profile, "chrome")} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("YukiTube nu poate scrie în %s.\n\nMută folderul YukiTube într-un loc unde ai drept de scriere (de exemplu Documente sau un stick USB).\n\n%v", root, err)
+			return msg("not_writable", filepath.Dir(dir), err)
 		}
 	}
 	if err := installAddons(share, filepath.Join(profile, "extensions")); err != nil {
 		return err
 	}
 	if err := copyFile(filepath.Join(share, "user.js"), filepath.Join(profile, "user.js")); err != nil {
-		return fmt.Errorf("Setările nu au putut fi copiate: %v", err)
+		return msg("settings_copy", err)
 	}
 	// The retrowave look: the window (userChrome) and YouTube itself
 	// (userContent).
 	for _, name := range []string{"userChrome.css", "userContent.css"} {
 		if err := copyFile(filepath.Join(share, name), filepath.Join(profile, "chrome", name)); err != nil {
-			return fmt.Errorf("Lipsește %s: %v", filepath.Join(share, name), err)
+			return msg("missing_file", filepath.Join(share, name), err)
 		}
 	}
 
@@ -101,7 +100,7 @@ func run(exe string, args []string) error {
 	cmd := exec.Command(firefox, argv...)
 	cmd.Dir = filepath.Dir(firefox)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("Firefox nu a pornit: %v", err)
+		return msg("firefox_failed", err)
 	}
 	return cmd.Process.Release()
 }
@@ -151,7 +150,7 @@ func forward(target string) bool {
 func startRemote(exe, remote string, extra ...string) error {
 	python := filepath.Join(remote, "runtime", pythonName)
 	if _, err := os.Stat(python); err != nil {
-		return fmt.Errorf("Telecomanda YukiTube lipsește din %s.\n\nDezarhivează din nou toată arhiva YukiTube.", remote)
+		return msg("remote_missing", remote)
 	}
 	if remoteRunning() {
 		return nil
@@ -166,7 +165,7 @@ func startRemote(exe, remote string, extra ...string) error {
 	cmd.Dir = remote
 	cmd.Env = append(os.Environ(), "YUKITUBE_OPEN="+exe)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("Telecomanda YukiTube nu a pornit: %v", err)
+		return msg("remote_failed", err)
 	}
 	return cmd.Process.Release()
 }
@@ -176,7 +175,7 @@ func startRemote(exe, remote string, extra ...string) error {
 func installAddons(share, extensions string) error {
 	list, err := os.Open(filepath.Join(share, "addons.tsv"))
 	if err != nil {
-		return fmt.Errorf("Lipsește lista de extensii: %v", err)
+		return msg("addons_list", err)
 	}
 	defer list.Close()
 
@@ -197,15 +196,27 @@ func installAddons(share, extensions string) error {
 		}
 		source := filepath.Join(share, "addons", guid+".xpi")
 		if got, err := fileSHA256(source); err != nil {
-			return fmt.Errorf("Lipsește extensia %s: %v", name, err)
+			return msg("addon_missing", name, err)
 		} else if got != sum {
-			return fmt.Errorf("Extensia %s este coruptă (checksum greșit). Dezarhivează din nou YukiTube.", name)
+			return msg("addon_corrupt", name)
 		}
 		if err := copyFile(source, target); err != nil {
-			return fmt.Errorf("Extensia %s nu a putut fi copiată: %v", name, err)
+			return msg("addon_copy", name, err)
 		}
 	}
 	return scanner.Err()
+}
+
+// Where the profile lives: Data\ beside YukiTube.exe for the portable
+// folder; for an installed YukiTube (App\installed, left by the installer;
+// Program Files is not writable) %LOCALAPPDATA%\YukiTube.
+func dataDir(root string) string {
+	if _, err := os.Stat(filepath.Join(root, "App", "installed")); err == nil {
+		if local := os.Getenv("LOCALAPPDATA"); local != "" {
+			return filepath.Join(local, "YukiTube")
+		}
+	}
+	return filepath.Join(root, "Data")
 }
 
 var youtubeLink = regexp.MustCompile(`(?i)^(https?://)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)(/|$)`)

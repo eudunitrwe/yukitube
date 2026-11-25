@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestResolve(t *testing.T) {
 	cases := map[string]string{
@@ -18,5 +22,36 @@ func TestResolve(t *testing.T) {
 		if got := resolve(input); got != want {
 			t.Errorf("resolve(%q) = %q, want %q", input, got, want)
 		}
+	}
+}
+
+func TestMessages(t *testing.T) {
+	for key, m := range messages {
+		for _, lang := range []string{"en", "ro", "ru"} {
+			if m[lang] == "" {
+				t.Errorf("message %q has no %s text", key, lang)
+			}
+		}
+	}
+	t.Setenv("YUKITUBE_LANG", "ru")
+	if got := msg("firefox_failed", "x").Error(); got != "Firefox не запустился: x" {
+		t.Errorf("msg in ru = %q", got)
+	}
+	t.Setenv("YUKITUBE_LANG", "xx")
+	if got := msg("firefox_failed", "x").Error(); got != "Firefox did not start: x" {
+		t.Errorf("msg fallback = %q", got)
+	}
+}
+
+func TestDataDir(t *testing.T) {
+	root := t.TempDir()
+	if got := dataDir(root); got != filepath.Join(root, "Data") {
+		t.Errorf("portable dataDir = %q", got)
+	}
+	os.MkdirAll(filepath.Join(root, "App"), 0o755)
+	os.WriteFile(filepath.Join(root, "App", "installed"), nil, 0o644)
+	t.Setenv("LOCALAPPDATA", "/local")
+	if got := dataDir(root); got != filepath.Join("/local", "YukiTube") {
+		t.Errorf("installed dataDir = %q", got)
 	}
 }

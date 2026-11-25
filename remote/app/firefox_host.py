@@ -93,7 +93,7 @@ class FirefoxHost(QObject):
             self._terminate()
             self.proc.waitForFinished(5000)
             if self.running():
-                self.proc.kill()
+                self._kill(self.proc)
                 self.proc.waitForFinished(2000)
 
     # ------------------------------------------------------------ private
@@ -106,19 +106,31 @@ class FirefoxHost(QObject):
         self._next = (visible, url)
         self._terminate()
 
+    @staticmethod
+    def _kill(p):
+        if provision.WIN:
+            # The launcher waits for the browser (-wait-for-browser); both go.
+            provision.win_kill_tree(p.processId())
+        p.kill()
+
     def _terminate(self):
         p = self.proc
-        if sys.platform == "win32" and not self.visible:
-            # A headless Firefox has no window to close on Windows.
-            p.kill()
-            return
-        p.terminate()
-        QTimer.singleShot(8000, lambda: p.kill() if p.state() != QProcess.NotRunning else None)
+        if provision.WIN:
+            # A headless Firefox has no window to close: it is ended at once.
+            # A visible one gets a normal close first.
+            provision.win_kill_tree(p.processId(), force=not self.visible)
+        else:
+            p.terminate()
+        QTimer.singleShot(8000, lambda: self._kill(p) if p.state() != QProcess.NotRunning else None)
 
     def _free_profile(self):
         """A Firefox left over from a remote that did not exit cleanly still
-        has the profile; on Linux its pid is in the lock, and it goes."""
+        has the profile, and Firefox would refuse a second one ("already
+        running"); it goes. On Linux its pid is in the lock."""
         if not provision.profile_in_use(self.profile):
+            return
+        if provision.WIN:
+            provision.win_free_profile(self.profile)
             return
         lock = os.path.join(self.profile, "lock")
         try:
@@ -132,7 +144,7 @@ class FirefoxHost(QObject):
 
     def _launch(self, visible, url):
         self._free_profile()
-        args = ["--profile", self.profile]
+        args = provision.WIN_ARGS + ["--profile", self.profile]
         if visible:
             args = ["--name", "yukitube", "--class", "yukitube"] + args if sys.platform != "win32" else args
         else:

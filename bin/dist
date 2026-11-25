@@ -8,10 +8,13 @@
 #   yukitube-<version>-windows-x64.zip       portable folder: YukiTube.exe, its
 #                                            own Firefox, the remote (embedded
 #                                            Python + Qt)
+#   yukitube-<version>-windows-x64-setup.exe the same, as an installer (NSIS) into
+#                                            C:\Program Files (x86)\YukiTube
 #
 # Each carries the verified add-ons, so installing needs no download. Only
 # what YukiTube uses is kept, to keep the downloads small.
-# Needs: uv, mise (for Go), bwrap, git, zip, bsdtar, curl, binutils.
+# Needs: uv, mise (for Go), bwrap, git, zip, bsdtar, curl, binutils, makensis
+# (NSIS 3; MAKENSIS can point to it).
 set -euo pipefail
 
 # Firefox for Windows, 64-bit, Romanian. To update, take the line for
@@ -29,7 +32,10 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 version=$(sed -n 's/^pkgver=//p' "$root/pkgbuild/PKGBUILD")
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/yukitube
 dist=$root/dist
-work=$(mktemp -d)
+mkdir -p "$cache"
+# On disk, not in /tmp (often RAM): the Windows staging alone is ~400 MB, and
+# makensis writes its own temporary files beside it.
+work=$(mktemp -d -p "$cache" build.XXXXXX)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$cache" "$dist"
 
@@ -196,11 +202,16 @@ echo "==> archives"
 txz=$dist/yukitube-$version-linux-x86_64.tar.xz
 pkg=$dist/yukitube-$version-1-any.pkg.tar.zst
 zip=$dist/yukitube-$version-windows-x64.zip
-rm -f "$txz" "$pkg" "$zip"
+exe=$dist/yukitube-$version-windows-x64-setup.exe
+rm -f "$txz" "$pkg" "$zip" "$exe"
 tar -C "$work" -cf - "yukitube-$version-linux-x86_64" | xz -9e -T0 >"$txz"
 cp "$root/pkgbuild/yukitube-$version-1-any.pkg.tar.zst" "$pkg"
 (cd "$work" && zip -qr -9 "$zip" YukiTube)
-(cd "$dist" && sha256sum "$(basename "$txz")" "$(basename "$pkg")" "$(basename "$zip")" >"yukitube-$version-SHA256SUMS")
+echo "==> windows: installer"
+mkdir -p "$work/tmp"
+TMPDIR=$work/tmp "${MAKENSIS:-makensis}" -V2 -DVERSION="$version" -DSRC="$win" -DOUTFILE="$exe" "$root/windows/installer.nsi"
+(cd "$dist" && sha256sum "$(basename "$txz")" "$(basename "$pkg")" "$(basename "$zip")" "$(basename "$exe")" \
+  >"yukitube-$version-SHA256SUMS")
 
 echo "Built:"
-ls -lh "$txz" "$pkg" "$zip"
+ls -lh "$txz" "$pkg" "$zip" "$exe"

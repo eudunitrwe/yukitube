@@ -25,13 +25,15 @@ from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QApplication,
                                QStyle, QStyledItemDelegate, QSystemTrayIcon, QVBoxLayout, QWidget)
 
 import icons
+import i18n
 import ytsearch
+from i18n import LANGS, T, set_lang
 from logo import logo_icon, logo_pixmap
 import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.4.5"
+VERSION = "0.4.6"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -41,14 +43,12 @@ WIDTH = 580
 # different look, its own drawing where classic() is checked).
 SKINS = {
     "retrowave": {
-        "label": "Retrowave",
         "PINK": "#ff2a6d", "CYAN": "#05d9e8", "MAGENTA": "#d300c5", "PURPLE": "#7b2fff",
         "YELLOW": "#ffd319", "ORANGE": "#ff901f", "TEXT": "#f6ecff", "MUTED": "#bfa3e0",
     },
     # A 90s desktop music player: brushed dark-steel case, bevelled grey
     # buttons, a black display with green LCD text.
     "classic": {
-        "label": "Clasic (anii ’90)",
         "PINK": "#e8c547", "CYAN": "#3cff3c", "MAGENTA": "#b8962a", "PURPLE": "#5a5a80",
         "YELLOW": "#ffe36b", "ORANGE": "#ff9b2f", "TEXT": "#22ff22", "MUTED": "#a7aac2",
     },
@@ -251,7 +251,7 @@ class IconButton(QAbstractButton):
 
 class PlayButton(IconButton):
     def __init__(self, parent=None):
-        super().__init__("play", size=50, icon_size=26, tip="Play / Pauză  (Space)", parent=parent)
+        super().__init__("play", size=50, icon_size=26, tip=T("play_tip"), parent=parent)
 
     def paintEvent(self, e):
         p = QPainter(self)
@@ -548,7 +548,7 @@ class Thumb(QWidget):
         self.setFixedSize(w, h)
         self._pm = None
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip("Arată tab-ul în browser")
+        self.setToolTip(T("thumb_tip"))
 
     def set_pixmap(self, pm):
         self._pm = pm
@@ -889,6 +889,7 @@ class Player(QWidget):
         self.setWindowIcon(logo_icon())
         self.settings = remote_settings()
         set_skin(str(self.settings.value("skin", "retrowave")))
+        set_lang(str(self.settings.value("lang", "en")))  # English unless chosen
         self.setStyleSheet(stylesheet())
         self.opacity = float(self.settings.value("opacity", 0.55))
         self.anim_on = self.settings.value("anim", "true") in (True, "true")
@@ -956,24 +957,24 @@ class Player(QWidget):
         hdr.addWidget(self.dot)
         # The dot is the only status on the bar; its tooltip says more.
         hdr.addStretch(1)
-        self.btn_tab = Chip("TAB 1/1", "Schimbă tab-ul YouTube controlat")
+        self.btn_tab = Chip("TAB 1/1", T("tab_chip_tip"))
         self.btn_tab.clicked.connect(self.tab_menu)
         hdr.addWidget(self.btn_tab)
         self.btn_account = AccountButton()
-        self.btn_account.setToolTip("Conectează contul Google")
+        self.btn_account.setToolTip(T("account_signin"))
         self.btn_account.clicked.connect(self.account_menu)
         hdr.addWidget(self.btn_account)
-        self.btn_skin = IconButton("palette", 26, 16, "Schimbă skin-ul")
+        self.btn_skin = IconButton("palette", 26, 16, T("skin_tip"))
         self.btn_skin.clicked.connect(lambda: self.skin_menu(self.btn_skin.mapToGlobal(QPoint(0, 26))))
-        self.btn_search = IconButton("search", 26, 16, "Caută  (Ctrl+F)", checkable=True)
+        self.btn_search = IconButton("search", 26, 16, T("search_tip"), checkable=True)
         self.btn_search.toggled.connect(self.toggle_search)
-        self.btn_mini = IconButton("collapse", 26, 16, "Mod compact")
+        self.btn_mini = IconButton("collapse", 26, 16, T("compact"))
         self.btn_mini.clicked.connect(self.toggle_mini)
-        self.btn_menu = IconButton("menu", 26, 16, "Meniu")
+        self.btn_menu = IconButton("menu", 26, 16, T("menu"))
         self.btn_menu.clicked.connect(lambda: self.show_menu(self.btn_menu.mapToGlobal(QPoint(0, 26))))
-        self.btn_minw = IconButton("min", 26, 14, "Minimizează")
+        self.btn_minw = IconButton("min", 26, 14, T("minimize"))
         self.btn_minw.clicked.connect(self.showMinimized)
-        self.btn_close = IconButton("close", 26, 15, "Închide", hover=PINK)
+        self.btn_close = IconButton("close", 26, 15, T("close"), hover=PINK)
         self.btn_close.clicked.connect(self.close)
         for b in (self.btn_skin, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
             hdr.addWidget(b)
@@ -999,21 +1000,21 @@ class Player(QWidget):
         col.addStretch(1)
         chips = QHBoxLayout()
         chips.setSpacing(5)
-        self.btn_like = IconButton("like", 24, 14, "Like", checkable=True)
+        self.btn_like = IconButton("like", 24, 14, T("like"), checkable=True)
         self.btn_like.clicked.connect(lambda: self.cmd("like"))
         chips.addWidget(self.btn_like)
-        self.btn_speed = Chip("1.0×", "Viteza de redare")
+        self.btn_speed = Chip("1.0×", T("speed_tip"))
         self.btn_speed.clicked.connect(self.speed_menu)
         chips.addWidget(self.btn_speed)
         self.badge_ad = QLabel("AD")
         self.badge_ad.setObjectName("badge")
         self.badge_ad.setFont(QFont(FONT_MONO, 8))
         chips.addWidget(self.badge_ad)
-        self.btn_skip = Chip("SKIP ▸", "Sari peste reclamă (dacă se poate)")
+        self.btn_skip = Chip("SKIP ▸", T("skip_tip"))
         self.btn_skip.clicked.connect(lambda: self.cmd("skipAd"))
         chips.addWidget(self.btn_skip)
         chips.addStretch(1)
-        self.btn_open = IconButton("open", 24, 14, "Arată / ascunde fereastra YouTube")
+        self.btn_open = IconButton("open", 24, 14, T("youtube_window_tip"))
         self.btn_open.clicked.connect(self.toggle_youtube)
         chips.addWidget(self.btn_open)
         col.addLayout(chips)
@@ -1060,25 +1061,25 @@ class Player(QWidget):
         # controls
         ctl = QHBoxLayout()
         ctl.setSpacing(2)
-        self.btn_loop = IconButton("loop", 32, 18, "Repetă videoclipul  (L)", checkable=True)
+        self.btn_loop = IconButton("loop", 32, 18, T("loop_tip"), checkable=True)
         self.btn_loop.clicked.connect(lambda: self.cmd("loop", self.btn_loop.isChecked()))
-        self.btn_prev = IconButton("prev", 34, 22, "Anterior  (P)")
+        self.btn_prev = IconButton("prev", 34, 22, T("prev_tip"))
         self.btn_prev.clicked.connect(lambda: self.cmd("prev"))
-        self.btn_rew = IconButton("rew", 34, 20, "Înapoi 10 s  (←)")
+        self.btn_rew = IconButton("rew", 34, 20, T("rew_tip"))
         self.btn_rew.clicked.connect(lambda: self.cmd("seekRel", -10))
         self.btn_play = PlayButton()
         self.btn_play.clicked.connect(self.toggle_play)
-        self.btn_fwd = IconButton("fwd", 34, 20, "Înainte 10 s  (→)")
+        self.btn_fwd = IconButton("fwd", 34, 20, T("fwd_tip"))
         self.btn_fwd.clicked.connect(lambda: self.cmd("seekRel", 10))
-        self.btn_next = IconButton("next", 34, 22, "Următorul  (N)")
+        self.btn_next = IconButton("next", 34, 22, T("next_tip"))
         self.btn_next.clicked.connect(lambda: self.cmd("next"))
-        self.btn_stop = IconButton("stop", 32, 20, "Stop  (S)")
+        self.btn_stop = IconButton("stop", 32, 20, T("stop_tip"))
         self.btn_stop.clicked.connect(self.stop)
-        self.btn_vol = IconButton("vol", 30, 18, "Mut  (M)")
+        self.btn_vol = IconButton("vol", 30, 18, T("mute_tip"))
         self.btn_vol.clicked.connect(lambda: self.cmd("mute"))
         self.vol = NeonSlider(height=16, knob=5)
         self.vol.setFixedWidth(92)
-        self.vol.tip_fn = lambda v: f"Volum {int(round(v * 100))}%"
+        self.vol.tip_fn = lambda v: T("volume_tip", v=int(round(v * 100)))
         self.vol.moved.connect(self.on_volume)
         self.vol.released.connect(self.on_volume)
         for b in (self.btn_loop, self.btn_prev, self.btn_rew):
@@ -1104,7 +1105,7 @@ class Player(QWidget):
         sp.setSpacing(6)
         self.search_edit = QLineEdit()
         self.search_edit.setObjectName("search")
-        self.search_edit.setPlaceholderText("Caută pe YouTube…")
+        self.search_edit.setPlaceholderText(T("search_placeholder"))
         self.search_edit.setClearButtonEnabled(True)
         self.search_edit.returnPressed.connect(self.do_search)
         sp.addWidget(self.search_edit)
@@ -1144,18 +1145,45 @@ class Player(QWidget):
             self.tray.setToolTip(APP_NAME)
             tm = QMenu()
             tm.setStyleSheet(stylesheet())
-            tm.addAction("Play / Pauză", self.toggle_play)
-            tm.addAction("Următorul", lambda: self.cmd("next"))
-            tm.addAction("Anterior", lambda: self.cmd("prev"))
-            tm.addSeparator()
-            tm.addAction("Arată / ascunde telecomanda", self.toggle_visible)
-            tm.addAction("Arată / ascunde fereastra YouTube", self.toggle_youtube)
-            tm.addAction("Ieșire", QApplication.quit)
             self.tray.setContextMenu(tm)
+            self._tray_menu = tm
+            self._fill_tray_menu()
             self.tray.activated.connect(
                 lambda r: self.toggle_visible() if r == QSystemTrayIcon.Trigger else None)
             self.tray.show()
             self._tray_menu = tm
+
+    def _fill_tray_menu(self):
+        tm = self._tray_menu
+        tm.clear()
+        tm.addAction(T("play_pause"), self.toggle_play)
+        tm.addAction(T("next"), lambda: self.cmd("next"))
+        tm.addAction(T("prev"), lambda: self.cmd("prev"))
+        tm.addSeparator()
+        tm.addAction(T("toggle_remote"), self.toggle_visible)
+        tm.addAction(T("youtube_window_tip"), self.toggle_youtube)
+        tm.addAction(T("quit"), QApplication.quit)
+
+    def retranslate(self):
+        """Puts every fixed text in the current language."""
+        for w, key in ((self.btn_tab, "tab_chip_tip"), (self.btn_skin, "skin_tip"), (self.btn_search, "search_tip"),
+                       (self.btn_menu, "menu"), (self.btn_minw, "minimize"), (self.btn_close, "close"),
+                       (self.btn_like, "like"), (self.btn_speed, "speed_tip"), (self.btn_skip, "skip_tip"),
+                       (self.btn_open, "youtube_window_tip"), (self.btn_loop, "loop_tip"), (self.btn_prev, "prev_tip"),
+                       (self.btn_rew, "rew_tip"), (self.btn_fwd, "fwd_tip"), (self.btn_next, "next_tip"),
+                       (self.btn_stop, "stop_tip"), (self.btn_vol, "mute_tip"), (self.btn_play, "play_tip"),
+                       (self.thumb, "thumb_tip")):
+            w.setToolTip(T(key))
+        self.btn_mini.setToolTip(T("full") if self.mini else T("compact"))
+        self.search_edit.setPlaceholderText(T("search_placeholder"))
+        if self.tray:
+            self._fill_tray_menu()
+        self.refresh_ui()
+
+    def set_language(self, code):
+        set_lang(code)
+        self.settings.setValue("lang", code)
+        self.retranslate()
 
     # ------------------------------------------------------------- painting
     def paintEvent(self, e):
@@ -1397,7 +1425,7 @@ class Player(QWidget):
         self.info_w.setVisible(not self.mini)
         self.mini_title.setVisible(self.mini)
         self.btn_mini.set_icon("expand" if self.mini else "collapse")
-        self.btn_mini.setToolTip("Mod complet" if self.mini else "Mod compact")
+        self.btn_mini.setToolTip(T("full") if self.mini else T("compact"))
         for w in (self.t_cur, self.t_dur):
             w.setVisible(not self.mini)
         self._fit()
@@ -1410,7 +1438,7 @@ class Player(QWidget):
 
     def _add_skin_actions(self, m):
         for key, sk in SKINS.items():
-            a = m.addAction(sk["label"])
+            a = m.addAction(T("skin_" + key))
             a.setCheckable(True)
             a.setChecked(key == SKIN)
             a.triggered.connect(lambda _=False, k=key: self.apply_skin(k))
@@ -1457,58 +1485,52 @@ class Player(QWidget):
 
     def show_menu(self, pos):
         m = QMenu(self)
-        a = m.addAction("Mereu deasupra")
+        a = m.addAction(T("always_on_top"))
         a.setCheckable(True)
         a.setChecked(self.on_top)
         a.toggled.connect(self.set_on_top)
-        a = m.addAction("Mod compact")
+        a = m.addAction(T("compact"))
         a.setCheckable(True)
         a.setChecked(self.mini)
         a.triggered.connect(self.toggle_mini)
-        sm = m.addMenu("Skin")
+        sm = m.addMenu(T("skin"))
         self._add_skin_actions(sm)
-        a = m.addAction("Animație grilă")
+        lm = m.addMenu("Language / Limba / Язык")
+        for code, name in LANGS.items():
+            act = lm.addAction(name)
+            act.setCheckable(True)
+            act.setChecked(code == i18n.LANG)
+            act.triggered.connect(lambda _=False, c=code: self.set_language(c))
+        a = m.addAction(T("grid_anim"))
         a.setCheckable(True)
         a.setChecked(self.anim_on)
         a.toggled.connect(lambda v: (setattr(self, "anim_on", v), self.settings.setValue("anim", v)))
-        om = m.addMenu("Transparență")
+        om = m.addMenu(T("transparency"))
         for pct in (100, 85, 70, 55, 40, 25):
-            act = om.addAction(f"{pct}% opac")
+            act = om.addAction(T("opaque", pct=pct))
             act.setCheckable(True)
             act.setChecked(abs(self.opacity - pct / 100) < 0.026)
             act.triggered.connect(lambda _=False, v=pct / 100: self.set_opacity(v))
         m.addSeparator()
         if self.host:
-            m.addAction("Ascunde fereastra YouTube" if self.youtube_shown() else "Arată fereastra YouTube",
+            m.addAction(T("hide_youtube") if self.youtube_shown() else T("show_youtube"),
                         self.toggle_youtube)
         else:
-            m.addAction("Deschide YouTube", self.open_youtube)
-        m.addAction("Conectează YukiTube (instalează puntea)", self.install_bridge)
-        m.addAction("Cum conectez browserul?", self.show_help)
+            m.addAction(T("open_youtube"), self.open_youtube)
+        m.addAction(T("install_bridge"), self.install_bridge)
+        m.addAction(T("how_connect"), self.show_help)
         m.addSeparator()
-        m.addAction(f"Despre {APP_NAME} {VERSION}", self.show_about)
-        m.addAction("Ieșire", QApplication.quit)
+        m.addAction(T("about", app=APP_NAME, version=VERSION), self.show_about)
+        m.addAction(T("quit"), QApplication.quit)
         m.exec(pos)
 
     def show_help(self):
         QMessageBox.information(
-            self, f"{APP_NAME} — conectare",
-            "În YukiTube: meniul ⋮ → „Conectează YukiTube (instalează puntea)”,\n"
-            "apoi apasă „Install” / „Instalează” în pagina Violentmonkey.\n"
-            "YukiTube face asta singur la prima pornire.\n\n"
-            "Alt browser (Chrome, Edge, Firefox obișnuit…): instalează Violentmonkey\n"
-            "sau Tampermonkey, apoi deschide în acel browser\n"
-            f"http://127.0.0.1:{PORT}/yukitube.user.js și apasă Install.\n"
-            "(Pentru Chrome/Edge există și extensia din remote/browser/extension\n"
-            "din sursele YukiTube: „Load unpacked” în modul dezvoltator.)\n\n"
-            "Apoi reîncarcă tab-ul YouTube. Punctul din colț devine verde.")
+            self, T("connect_title", app=APP_NAME), T("connect_help", port=PORT))
 
     def show_about(self):
         QMessageBox.about(
-            self, APP_NAME,
-            f"<b>{APP_NAME} {VERSION}</b><br>Telecomanda retrowave a YukiTube.<br><br>"
-            f"Port local: 127.0.0.1:{PORT}<br>"
-            "Scurtături: Space, S (stop), ←/→, ↑/↓, M, L, N, P, D (lipește), Ctrl+F, Ctrl+rotiță = transparență")
+            self, APP_NAME, T("about_text", app=APP_NAME, version=VERSION, port=PORT))
 
     def keyPressEvent(self, e):
         k = e.key()
@@ -1686,7 +1708,7 @@ class Player(QWidget):
 
     def tab_menu(self):
         m = QMenu(self)
-        a = m.addAction("Automat (tab-ul care cântă)")
+        a = m.addAction(T("auto_tab"))
         a.setCheckable(True)
         a.setChecked(self.selected is None)
         a.triggered.connect(lambda: self._select_tab(None))
@@ -1810,15 +1832,14 @@ class Player(QWidget):
         if not acc.get("loggedIn"):
             self.open_url(SIGNIN_URL)
             if self.host and self.tray:
-                self.tray.showMessage(APP_NAME, "După ce te autentifici, închide fereastra YouTube: "
-                                      "YukiTube continuă în telecomandă.", logo_icon(), 8000)
+                self.tray.showMessage(APP_NAME, T("signin_hint"), logo_icon(), 8000)
             return
         m = QMenu(self)
-        a = m.addAction("✓ Conectat cu contul Google")
+        a = m.addAction(T("signed_in_as"))
         a.setEnabled(False)
         m.addSeparator()
-        m.addAction("Schimbă contul", lambda: self.open_url(SWITCH_URL))
-        m.addAction("Deconectare", lambda: self.open_url(SIGNOUT_URL))
+        m.addAction(T("switch_account"), lambda: self.open_url(SWITCH_URL))
+        m.addAction(T("sign_out"), lambda: self.open_url(SIGNOUT_URL))
         m.exec(self.btn_account.mapToGlobal(QPoint(0, self.btn_account.height())))
 
     def _sync_account(self, connected):
@@ -1833,7 +1854,7 @@ class Player(QWidget):
             rep = self.net.get(QNetworkRequest(QUrl(url)))
             rep.finished.connect(lambda: self._on_avatar(rep, url))
         self.btn_account.set_account(logged_in, self.avatars.get(url) if url else None)
-        self.btn_account.setToolTip("Cont Google conectat" if logged_in else "Conectează contul Google")
+        self.btn_account.setToolTip(T("account_signed_in") if logged_in else T("account_signin"))
 
     def _on_avatar(self, rep, url):
         rep.deleteLater()
@@ -1875,10 +1896,10 @@ class Player(QWidget):
             return
         d = idx.data(ROLE_DATA)
         m = QMenu(self)
-        a = m.addAction("Redă în tab-ul curent", lambda: self.play_result(d))
+        a = m.addAction(T("play_here"), lambda: self.play_result(d))
         a.setEnabled(bool(self.cur_key))
-        m.addAction("Deschide într-un tab nou", lambda: self.open_in_browser(d))
-        m.addAction("Copiază link-ul", lambda: QGuiApplication.clipboard().setText(
+        m.addAction(T("open_new_tab"), lambda: self.open_in_browser(d))
+        m.addAction(T("copy_link"), lambda: QGuiApplication.clipboard().setText(
             f"https://www.youtube.com/watch?v={d['id']}"))
         m.exec(self.results_view.viewport().mapToGlobal(pos))
 
@@ -1889,7 +1910,8 @@ class Player(QWidget):
             return
         self.search_req += 1
         req = self.search_req
-        self.search_status.setText(f"Caut „{q}”…")
+        self._searching = True
+        self.search_status.setText(T("searching", q=q))
         self._search_direct(q, req)
 
     def _search_direct(self, q, req):
@@ -1929,11 +1951,13 @@ class Player(QWidget):
                 self._pending_q = q
                 QTimer.singleShot(8000, lambda: self._search_timeout(req))
                 return
-        self.search_status.setText(f"Căutarea a eșuat: {err or 'niciun rezultat'}")
+        self._searching = False
+        self.search_status.setText(T("search_failed", err=err or T("no_results_err")))
 
     def _search_timeout(self, req):
-        if req == self.search_req and self.search_status.text().startswith("Caut"):
-            self.search_status.setText("Căutarea a eșuat (timeout).")
+        if req == self.search_req and getattr(self, "_searching", False):
+            self._searching = False
+            self.search_status.setText(T("search_timeout"))
 
     def on_agent_results(self, msg):
         if msg.get("reqId") != self.search_req:
@@ -1942,7 +1966,8 @@ class Player(QWidget):
         if items:
             self.show_results(items, getattr(self, "_pending_q", ""))
         else:
-            self.search_status.setText(f"Niciun rezultat. {msg.get('error', '')}")
+            self._searching = False
+            self.search_status.setText(T("no_results", err=msg.get("error", "")))
 
     def show_results(self, items, q):
         self.results_model.clear()
@@ -1952,8 +1977,9 @@ class Player(QWidget):
             si.setToolTip(it.get("title", ""))
             self.results_model.appendRow(si)
         self.results_view.scrollToTop()
-        hint = "click = redă în tab · Ctrl/mijloc = tab nou" if self.cur_key else "click = deschide în browser"
-        self.search_status.setText(f"{len(items)} rezultate pentru „{q}”  ·  {hint}")
+        self._searching = False
+        hint = T("hint_tab") if self.cur_key else T("hint_browser")
+        self.search_status.setText(T("results_for", n=len(items), q=q, hint=hint))
 
     # ---------------------------------------------------------- thumbnails
     def request_thumb(self, vid, cb=None):
@@ -2027,11 +2053,11 @@ class Player(QWidget):
         n = len(self.tabs)
         self.ws.ping["tabs"] = n
         if connected:
-            self.dot.setToolTip(f"Conectat · {browser_name(st)} · {n} tab{'uri' if n != 1 else ''}")
+            self.dot.setToolTip(T("dot_connected", browser=browser_name(st), n=n))
         elif self.bridges:
-            self.dot.setToolTip("Browser conectat · deschide YouTube")
+            self.dot.setToolTip(T("dot_browser"))
         else:
-            self.dot.setToolTip("Aștept YouTube…")
+            self.dot.setToolTip(T("dot_waiting"))
         self.btn_tab.setVisible(n > 1)
         if n > 1:
             idx = list(self.tabs).index(self.cur_key) + 1 if self.cur_key in self.tabs else 0
@@ -2043,19 +2069,18 @@ class Player(QWidget):
             self.mini_title.set_text(title)
             self.channel.setText(st.get("channel", ""))
         elif connected:
-            self.title.set_text("Niciun videoclip deschis")
-            self.mini_title.set_text("Niciun videoclip deschis")
-            self.channel.setText("Caută ceva și apasă pe rezultat ✦")
+            self.title.set_text(T("no_video"))
+            self.mini_title.set_text(T("no_video"))
+            self.channel.setText(T("search_hint"))
         elif self.host and (self.host.preparing or self.host.running()):
             first = self.host.preparing
-            self.title.set_text("Pregătesc YukiTube…" if first else "Pornesc YouTube…")
+            self.title.set_text(T("preparing") if first else T("starting"))
             self.mini_title.set_text(self.title.text())
-            self.channel.setText("Prima pornire: durează câteva secunde" if first else "O clipă…")
+            self.channel.setText(T("first_start") if first else T("one_moment"))
         else:
-            self.title.set_text("Niciun tab YouTube conectat")
-            self.mini_title.set_text("Niciun tab YouTube conectat")
-            self.channel.setText("Instalează puntea YukiTube (meniul ⋮)" if not self.bridges
-                                 else "Deschide YouTube în browser")
+            self.title.set_text(T("no_tab"))
+            self.mini_title.set_text(T("no_tab"))
+            self.channel.setText(T("install_bridge_hint") if not self.bridges else T("open_in_browser"))
 
         vid = st.get("id")
         if has_video and vid:
@@ -2170,8 +2195,7 @@ def main():
         if forward_to_running(opts["arg"]) or opts["quiet"]:
             return 0
         QMessageBox.critical(None, APP_NAME,
-                             f"Nu pot porni serverul local pe portul {PORT}.\n"
-                             f"Probabil telecomanda YukiTube rulează deja.\n\n{w.ws.error_string()}")
+                             T("port_busy", port=PORT, err=w.ws.error_string()))
         return 1
     pos = w.settings.value("pos")
     if isinstance(pos, QPoint):

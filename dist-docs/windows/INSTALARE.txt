@@ -1,37 +1,19 @@
-Instalare YukiTube 0.4.5 pe Windows 10 / 11
+Instalare YukiTube 0.4.6 pe Windows 10 / 11
 ===========================================
 
-YukiTube e un player YouTube: folosești doar telecomanda YukiTube, iar
-YouTube cântă într-un Firefox ascuns, în spatele ei.
+1. OPȚIONAL: SCURTĂTURI
 
-Nu ai nevoie de Firefox, de Python și nici de drepturi de administrator:
-totul e în arhivă.
-
-
-1. DEZARHIVEAZĂ
-
-Click dreapta pe yukitube-0.4.5-windows-x64.zip > „Extract All...”
-(Extrage tot) și alege unde să pună folderul: de exemplu Documente,
-Desktop sau un stick USB.
-
-  - Nu porni YukiTube direct din fereastra arhivei; dezarhivează întâi.
-  - Nu pune folderul în C:\Program Files: acolo YukiTube nu își poate
-    salva profilul.
-
-
-2. OPȚIONAL: SCURTĂTURI
-
-În folderul YukiTube dezarhivat, dublu-click pe:
+În folderul YukiTube, dublu-click pe:
 
     Creeaza-scurtaturi.cmd
 
 YukiTube apare în meniul Start și pe Desktop. Se deschide o fereastră
 neagră care confirmă; apasă orice tastă ca să o închizi. Scurtăturile
-duc la folderul ales la pasul 1, deci nu îl muta după aceea (sau rulează
-din nou Creeaza-scurtaturi.cmd după mutare).
+duc la acest folder, deci nu îl muta după aceea (sau rulează din nou
+Creeaza-scurtaturi.cmd după mutare).
 
 
-3. PRIMA PORNIRE
+2. PRIMA PORNIRE
 
 Dublu-click pe YukiTube.exe (sau pe scurtătura YukiTube).
 
@@ -41,7 +23,8 @@ Dublu-click pe YukiTube.exe (sau pe scurtătura YukiTube).
   b. Prima pornire durează câteva secunde în plus: YukiTube își creează
      profilul în folderul Data, instalează extensiile și puntea, fără să-ți
      ceară nimic. Se deschide doar telecomanda: YouTube cântă într-un
-     Firefox ascuns, în spatele ei.
+     Firefox ascuns, în spatele ei. Telecomanda pornește în engleză;
+     pentru română: meniul ⋮ > Language / Limba > Română.
   c. Caută ceva cu lupa și apasă pe un rezultat. Punctul de lângă logo-ul
      telecomenzii e verde când YouTube e conectat.
   d. Opțional: apasă butonul de cont (omulețul) ca să te autentifici cu
