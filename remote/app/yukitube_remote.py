@@ -31,7 +31,7 @@ import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.4.4"
+VERSION = "0.4.5"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -540,19 +540,6 @@ class Marquee(QWidget):
                 p.fillRect(QRectF(min(x0, x1), 0, 14, self.height()), g)
 
 
-class ElideLabel(QLabel):
-    """A label that ends in "…" instead of being cut when space runs out."""
-
-    def minimumSizeHint(self):
-        return QSize(0, super().minimumSizeHint().height())
-
-    def paintEvent(self, e):
-        p = QPainter(self)
-        p.setPen(self.palette().color(self.foregroundRole()))
-        text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, self.width())
-        p.drawText(self.rect(), int(self.alignment()), text)
-
-
 class Thumb(QWidget):
     clicked = Signal()
 
@@ -967,11 +954,8 @@ class Player(QWidget):
         hdr.addSpacing(6)
         self.dot = StatusDot()
         hdr.addWidget(self.dot)
-        self.status = ElideLabel()
-        self.status.setObjectName("hint")
-        self.status.setFont(QFont(FONT_UI, 8))
-        self.status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        hdr.addWidget(self.status, 1)
+        # The dot is the only status on the bar; its tooltip says more.
+        hdr.addStretch(1)
         self.btn_tab = Chip("TAB 1/1", "Schimbă tab-ul YouTube controlat")
         self.btn_tab.clicked.connect(self.tab_menu)
         hdr.addWidget(self.btn_tab)
@@ -1319,7 +1303,7 @@ class Player(QWidget):
         sg.setColorAt(0, QColor(36, 36, 52, alpha))
         sg.setColorAt(1, QColor(20, 20, 30, alpha))
         p.fillRect(strip, sg)
-        x0 = self.status.geometry().left() + self.status.fontMetrics().horizontalAdvance(self.status.text()) + 10
+        x0 = self.dot.geometry().right() + 12
         x1 = min(w.geometry().left() for w in (self.btn_tab, self.btn_account) if w.isVisible()) - 8
         if x1 - x0 > 12:
             cy = strip.center().y()
@@ -2043,11 +2027,11 @@ class Player(QWidget):
         n = len(self.tabs)
         self.ws.ping["tabs"] = n
         if connected:
-            self.status.setText(f"{browser_name(st)} · {n} tab{'uri' if n != 1 else ''}")
+            self.dot.setToolTip(f"Conectat · {browser_name(st)} · {n} tab{'uri' if n != 1 else ''}")
         elif self.bridges:
-            self.status.setText("Browser conectat · deschide YouTube")
+            self.dot.setToolTip("Browser conectat · deschide YouTube")
         else:
-            self.status.setText("Aștept browserul…")
+            self.dot.setToolTip("Aștept YouTube…")
         self.btn_tab.setVisible(n > 1)
         if n > 1:
             idx = list(self.tabs).index(self.cur_key) + 1 if self.cur_key in self.tabs else 0

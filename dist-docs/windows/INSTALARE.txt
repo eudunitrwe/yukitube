@@ -1,4 +1,4 @@
-Instalare YukiTube 0.4.4 pe Windows 10 / 11
+Instalare YukiTube 0.4.5 pe Windows 10 / 11
 ===========================================
 
 YukiTube e un player YouTube: folosești doar telecomanda YukiTube, iar
@@ -10,7 +10,7 @@ totul e în arhivă.
 
 1. DEZARHIVEAZĂ
 
-Click dreapta pe yukitube-0.4.4-windows-x64.zip > „Extract All...”
+Click dreapta pe yukitube-0.4.5-windows-x64.zip > „Extract All...”
 (Extrage tot) și alege unde să pună folderul: de exemplu Documente,
 Desktop sau un stick USB.
 

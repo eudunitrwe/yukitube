@@ -184,7 +184,7 @@ Scurtăturile telecomenzii sunt în README-urile din arhive (`dist-docs/`).
 - `share/addons.tsv`: add-on-urile, cu link-ul și SHA-256 pentru fiecare.
 - `share/user.js`: setările profilului (pagina de start, fără taburi, temă întunecată, add-on-urile activate fără întrebări). Se rescrie la fiecare pornire; restul setărilor le poți schimba liber.
 - `share/userChrome.css`: ascunde bara de taburi și dă ferestrei culorile retrowave. `share/userContent.css`: aceleași culori pe YouTube (doar variabilele de culoare ale YouTube și câteva accente, nu layout-ul).
-- `remote/tools/make_icons.py`: generează toate iconițele din logo-ul desenat în `remote/app/logo.py` (PNG/ICO pentru telecomandă și Windows, SVG pentru Linux).
+- `remote/tools/make_icons.py`: generează toate iconițele din logo, `remote/app/assets/logo.svg` (pisica Yuki în fața soarelui retrowave): PNG/ICO pentru telecomandă, extensie și Windows; pentru Linux, SVG-ul însuși.
 - `remote/app/`: telecomanda (`yukitube_remote.py` interfața, `firefox_host.py` Firefox-ul ascuns, `provision.py` pregătirea profilului, `hyprland.py` fereastra plutitoare pe Hyprland, `logo.py` logo-ul, `wsserver.py` serverul local, `ytsearch.py` căutarea fără cheie API).
 - `remote/browser/`: puntea (`agent-core.js` rulează în tab-ul YouTube; `userscript-*.js` o împachetează ca userscript; `extension/` ca extensie MV3).
 - `windows/`: iconița și `shortcuts.ps1` (scurtăturile din meniul Start pentru varianta portabilă).
