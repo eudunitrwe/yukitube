@@ -41,6 +41,10 @@ elif [[ -f $here/../remote/app/yukitube_remote.py ]]; then
   remote=(python3 "$here/../remote/app/yukitube_remote.py")
 fi
 
+# The remote starts YukiTube again through this launcher (after an update)
+# and points autostart and the desktop shortcut at it.
+export YUKITUBE_LAUNCHER=$self
+
 port=${YUKITUBE_PORT:-8975}
 remote_running() {
   curl -fs --max-time 1 "http://127.0.0.1:$port/yt/ping" 2>/dev/null | grep -q '"yukitube-remote"'

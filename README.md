@@ -56,6 +56,12 @@ Firefox and the player are included; you need nothing else. If SmartScreen says 
 
 Only the remote opens; nothing to click. The very first launch takes a few seconds longer ("Preparing YukiTube…") while YukiTube sets itself up. Search with 🔍 (or `Ctrl+F`) and click a result to play it. To sign in to YouTube, click the **account button** (👤): the YouTube window opens on Google's sign-in page; close it when you're done. The ↗ button (or menu ⋮) shows or hides the YouTube window. The player starts in English; menu ⋮ → **Language** switches to Română or Русский. Closing the player stops YouTube too.
 
+### Settings, updates, recommendations
+
+- **Settings** (⚙ button, or menu ⋮ → Settings…): the language, starting YukiTube with the computer, a shortcut on the desktop, showing the recommendations, and updates.
+- **Updates:** at start YukiTube looks on GitHub for a new version. When there is one, the player offers it: click **Download**, then **Restart now** — or just keep listening, and it is installed the next time you start YukiTube. The download is checked against the release's SHA-256 sums. Windows asks for admin rights (installer version) and the Arch package for your password; the portable and per-user Linux versions update by themselves. Settings → **Check now** looks right away.
+- **Music for you:** a small strip at the bottom of the player, music only. Signed in with Google, it shows YouTube's **Music** tab for your account (the one on the YouTube home page); otherwise, songs from the YouTube Mixes of what you play most (remembered on this computer only). ↻ shows more. Click one to play it.
+
 Full step-by-step instructions (in Romanian) are inside each archive: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
 ---
@@ -97,6 +103,12 @@ Firefox și telecomanda sunt incluse; nu-ți mai trebuie nimic. Dacă SmartScree
 ### Prima pornire (ambele sisteme)
 
 Se deschide doar telecomanda; nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus („Preparing YukiTube…”), cât YukiTube se pregătește singur. Caută cu 🔍 (sau `Ctrl+F`) și apasă pe un rezultat ca să-l redai. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤): se deschide fereastra YouTube la autentificarea Google; închide-o când ai terminat. Butonul ↗ (sau meniul ⋮) arată sau ascunde fereastra YouTube. Telecomanda pornește în engleză; meniul ⋮ → **Language / Limba** o trece în română sau rusă. Când închizi telecomanda, se oprește și YouTube.
+
+### Setări, actualizări, recomandări
+
+- **Setări** (butonul ⚙ sau meniul ⋮ → Setări…): limba, pornirea YukiTube odată cu calculatorul, scurtătura pe desktop, afișarea recomandărilor și actualizările.
+- **Actualizări:** la pornire YukiTube caută pe GitHub o versiune nouă. Dacă există, playerul ți-o propune: apasă **Descarcă**, apoi **Repornește acum** — sau ascultă mai departe, și se instalează data viitoare când pornești YukiTube. Fișierul descărcat e verificat cu sumele SHA-256 ale versiunii. Windows cere drepturi de administrator (varianta cu installer), iar pachetul Arch parola ta; variantele portabilă și Linux per-utilizator se actualizează singure. Setări → **Verifică acum** caută imediat.
+- **Muzică pentru tine:** o bandă mică în josul playerului, doar cu muzică. Cu contul Google conectat, arată secțiunea **Music** de pe pagina principală YouTube, pentru contul tău; fără cont, piese din Mix-urile YouTube ale melodiilor pe care le asculți cel mai des (ținute minte doar pe acest calculator). ↻ arată altele. Apasă pe una ca s-o redai.
 
 Instrucțiunile complete, pas cu pas, sunt în fiecare arhivă: `INSTALARE.md` (Linux) / `INSTALARE.txt` (Windows).
 
@@ -182,7 +194,7 @@ Scurtăturile telecomenzii sunt în README-urile din arhive (`dist-docs/`).
 - `share/user.js`: setările profilului (pagina de start, fără taburi, temă întunecată, add-on-urile activate fără întrebări). Se rescrie la fiecare pornire; restul setărilor le poți schimba liber.
 - `share/userChrome.css`: ascunde bara de taburi și dă ferestrei culorile retrowave. `share/userContent.css`: aceleași culori pe YouTube (doar variabilele de culoare ale YouTube și câteva accente, nu layout-ul).
 - `remote/tools/make_icons.py`: generează toate iconițele din logo, `remote/app/assets/logo.svg` (pisica Yuki în fața soarelui retrowave): PNG/ICO pentru telecomandă, extensie și Windows; pentru Linux, SVG-ul însuși.
-- `remote/app/`: telecomanda (`yukitube_remote.py` interfața, `firefox_host.py` Firefox-ul ascuns, `provision.py` pregătirea profilului, `hyprland.py` fereastra plutitoare pe Hyprland, `logo.py` logo-ul, `wsserver.py` serverul local, `ytsearch.py` căutarea fără cheie API).
+- `remote/app/`: telecomanda (`yukitube_remote.py` interfața, `firefox_host.py` Firefox-ul ascuns, `provision.py` pregătirea profilului, `hyprland.py` fereastra plutitoare pe Hyprland, `logo.py` logo-ul, `wsserver.py` serverul local, `ytsearch.py` căutarea fără cheie API și citirea listelor de videoclipuri, `updater.py` actualizările din GitHub Releases, `integration.py` tipul instalării, pornirea automată și scurtătura de pe desktop, `recommend.py` istoricul local pentru recomandări).
 - `remote/browser/`: puntea (`agent-core.js` rulează în tab-ul YouTube; `userscript-*.js` o împachetează ca userscript; `extension/` ca extensie MV3).
 - `windows/`: iconița și `shortcuts.ps1` (scurtăturile din meniul Start pentru varianta portabilă).
 - `dist-docs/`: README-urile și instrucțiunile de instalare din arhive.

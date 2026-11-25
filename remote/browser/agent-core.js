@@ -202,30 +202,143 @@ function createYukiAgent(send) {
     let items = [], error = "";
     try {
       if (isMusic) throw new Error("search only from www.youtube.com");
-      const r = await fetch("/results?search_query=" + encodeURIComponent(q) + "&sp=EgIQAQ%253D%253D", { credentials: "include" });
-      const html = await r.text();
-      const m = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s);
-      if (!m) throw new Error("no data");
-      const txt = (n) => !n ? "" : n.simpleText || (n.runs || []).map((x) => x.text).join("");
-      const walk = (n) => {
-        if (items.length >= 25 || !n || typeof n !== "object") return;
-        if (Array.isArray(n)) { n.forEach(walk); return; }
-        const vr = n.videoRenderer;
-        if (vr && vr.videoId) {
-          items.push({
-            id: vr.videoId,
-            title: txt(vr.title),
-            channel: txt(vr.ownerText || vr.longBylineText),
-            duration: txt(vr.lengthText) || "LIVE",
-            views: txt(vr.shortViewCountText || vr.viewCountText),
-          });
-          return;
-        }
-        for (const k in n) walk(n[k]);
-      };
-      walk(JSON.parse(m[1]));
+      items = await pageVideos("/results?search_query=" + encodeURIComponent(q) + "&sp=EgIQAQ%253D%253D", 25);
     } catch (e) { error = String(e && e.message || e); }
     send({ type: "search_results", reqId, items, error });
+  }
+
+  // Videos from a YouTube page's ytInitialData: search results, the home
+  // feed, related videos. Both layouts (videoRenderer, lockupViewModel);
+  // ads and Shorts are left out.
+  const SKIP = new Set(["adSlotRenderer", "promotedSparklesWebRenderer", "reelShelfRenderer", "richShelfRenderer",
+    "shortsLockupViewModel", "reelItemRenderer"]);
+  function videosIn(data, limit) {
+    const items = [], seen = new Set();
+    const txt = (n) => !n ? "" : n.simpleText || (n.runs || []).map((x) => x.text).join("");
+    const first = (n, key) => {
+      if (!n || typeof n !== "object") return null;
+      if (!Array.isArray(n) && key in n) return n[key];
+      for (const k in n) { const r = first(n[k], key); if (r) return r; }
+      return null;
+    };
+    const add = (it) => { if (it.id && !seen.has(it.id)) { seen.add(it.id); items.push(it); } };
+    const walk = (n) => {
+      if (items.length >= limit || !n || typeof n !== "object") return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      const vr = n.videoRenderer || n.compactVideoRenderer;
+      if (vr && vr.videoId) {
+        add({
+          id: vr.videoId,
+          title: txt(vr.title),
+          channel: txt(vr.ownerText || vr.longBylineText || vr.shortBylineText),
+          duration: txt(vr.lengthText) || (vr.badges ? "LIVE" : ""),
+          views: txt(vr.shortViewCountText || vr.viewCountText),
+        });
+        return;
+      }
+      const lv = n.lockupViewModel;
+      if (lv) {
+        if (lv.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" && lv.contentId) {
+          const md = (lv.metadata && lv.metadata.lockupMetadataViewModel) || {};
+          const rows = (md.metadata && md.metadata.contentMetadataViewModel &&
+            md.metadata.contentMetadataViewModel.metadataRows) || [];
+          const part = (r) => (rows[r] && rows[r].metadataParts && rows[r].metadataParts[0] &&
+            rows[r].metadataParts[0].text && rows[r].metadataParts[0].text.content) || "";
+          const badge = first(lv.contentImage, "thumbnailBadgeViewModel") || {};
+          add({ id: lv.contentId, title: (md.title && md.title.content) || "", channel: part(0),
+            duration: badge.text || "", views: part(1) });
+        }
+        return;
+      }
+      for (const k in n) if (!SKIP.has(k)) walk(n[k]);
+    };
+    walk(data);
+    return items;
+  }
+
+  async function pageVideos(path, limit) {
+    const r = await fetch(path, { credentials: "include" });
+    const html = await r.text();
+    const m = html.match(/(?:var ytInitialData|window\["ytInitialData"\])\s*=\s*(\{.+?\});\s*<\/script>/s);
+    if (!m) throw new Error("no data");
+    return videosIn(JSON.parse(m[1]), limit);
+  }
+
+  // YouTube's "Music" tab on the home page, for the signed-in account: music
+  // only, picked from what the account listens to. The tab's name is in the
+  // account's language.
+  const MUSIC = /^(music|muzic[aă]|музыка|музика|musik|musique|m[uú]sica|muziek|muzyka|hudba|zene|musiikki|μουσική|müzik)$/i;
+  const cfg = (k) => { try { return pageWin.ytcfg.get(k); } catch (e) { return undefined; } };
+  const plain = (o) => o === undefined ? undefined : JSON.parse((pageWin.JSON || JSON).stringify(o));
+
+  function musicChipToken(data) {
+    let token = "";
+    const txt = (n) => !n ? "" : typeof n === "string" ? n : n.simpleText || n.content ||
+      (n.runs || []).map((x) => x.text).join("");
+    const tokenIn = (n) => {
+      if (!n || typeof n !== "object" || token) return "";
+      if (n.continuationCommand && n.continuationCommand.token) return n.continuationCommand.token;
+      for (const k in n) { const t = tokenIn(n[k]); if (t) return t; }
+      return "";
+    };
+    const walk = (n) => {
+      if (token || !n || typeof n !== "object") return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      for (const k in n) {
+        const v = n[k];
+        if (/chip/i.test(k) && v && typeof v === "object" && !Array.isArray(v) && MUSIC.test(txt(v.text).trim())) {
+          token = tokenIn(v);
+          if (token) return;
+        }
+        walk(v);
+      }
+    };
+    walk(data);
+    return token;
+  }
+
+  // The Authorization header YouTube's own requests carry when signed in.
+  async function authHeader() {
+    const m = document.cookie.match(/(?:^|;\s*)(?:SAPISID|__Secure-3PAPISID)=([^;]+)/);
+    if (!m) return "";
+    const ts = Math.floor(Date.now() / 1000);
+    const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(ts + " " + m[1] + " " + location.origin));
+    const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    return "SAPISIDHASH " + ts + "_" + hex;
+  }
+
+  async function musicTab(limit) {
+    const r = await fetch("/", { credentials: "include" });
+    const html = await r.text();
+    const m = html.match(/(?:var ytInitialData|window\["ytInitialData"\])\s*=\s*(\{.+?\});\s*<\/script>/s);
+    if (!m) throw new Error("no data");
+    const token = musicChipToken(JSON.parse(m[1]));
+    if (!token) throw new Error("no Music tab");
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Youtube-Client-Name": String(cfg("INNERTUBE_CONTEXT_CLIENT_NAME") || 1),
+      "X-Youtube-Client-Version": String(cfg("INNERTUBE_CLIENT_VERSION") || ""),
+      "X-Goog-AuthUser": String(cfg("SESSION_INDEX") || 0),
+      "X-Origin": location.origin,
+    };
+    const auth = await authHeader();
+    if (auth) headers.Authorization = auth;
+    const key = cfg("INNERTUBE_API_KEY");
+    const res = await fetch("/youtubei/v1/browse?prettyPrint=false" + (key ? "&key=" + encodeURIComponent(key) : ""), {
+      method: "POST", credentials: "include", headers,
+      body: JSON.stringify({ context: plain(cfg("INNERTUBE_CONTEXT")) || {}, continuation: token }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return videosIn(await res.json(), limit);
+  }
+
+  async function recommend(reqId) {
+    let items = [], error = "";
+    try {
+      if (isMusic) throw new Error("recommendations only from www.youtube.com");
+      items = await musicTab(30);
+    } catch (e) { error = String(e && e.message || e); }
+    send({ type: "recommendations", reqId, items, error, loggedIn: account().loggedIn });
   }
 
   function handle(msg) {
@@ -268,6 +381,7 @@ function createYukiAgent(send) {
       }
       case "open": if (val && val.id) navigate(String(val.id), val.t); break;
       case "search": search(String(val || ""), msg.reqId); return;
+      case "recommend": recommend(msg.reqId); return;
       case "focus": window.focus(); break;
     }
     setTimeout(() => push(true), 120);

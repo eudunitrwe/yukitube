@@ -163,7 +163,9 @@ func startRemote(exe, remote string, extra ...string) error {
 	}
 	cmd := exec.Command(python, argv...)
 	cmd.Dir = remote
-	cmd.Env = append(os.Environ(), "YUKITUBE_OPEN="+exe)
+	// YUKITUBE_LAUNCHER: the remote starts YukiTube again through it (after
+	// an update) and points autostart and the desktop shortcut at it.
+	cmd.Env = append(os.Environ(), "YUKITUBE_OPEN="+exe, "YUKITUBE_LAUNCHER="+exe)
 	if err := cmd.Start(); err != nil {
 		return msg("remote_failed", err)
 	}

@@ -20,12 +20,16 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QDesktopServices, QFont, QFo
                            QPainterPath, QPen, QPixmap, QRadialGradient, QStandardItem,
                            QStandardItemModel)
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
-from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QApplication, QFrame, QHBoxLayout,
-                               QLabel, QLineEdit, QListView, QMenu, QMessageBox, QSizePolicy,
-                               QStyle, QStyledItemDelegate, QSystemTrayIcon, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog,
+                               QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QMenu, QMessageBox,
+                               QPushButton, QSizePolicy, QStyle, QStyledItemDelegate, QSystemTrayIcon,
+                               QVBoxLayout, QWidget)
 
 import icons
 import i18n
+import integration
+import recommend
+import updater
 import ytsearch
 from i18n import LANGS, T, set_lang
 from logo import logo_icon, logo_pixmap
@@ -33,7 +37,7 @@ import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.4.7"
+VERSION = "0.5.0"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -783,6 +787,8 @@ QLabel#time {{ color: #e6e6f0; }}
 QLabel#channel {{ color: {CYAN}; }}
 QLabel#hint {{ color: #e6e6f0; }}
 QLabel#badge {{ color: #000000; background: {YELLOW}; border-radius: 0; padding: 0 5px; font-weight: bold; }}
+QLabel#recs_title {{ color: #e6e6f0; }}
+QLabel#update_text {{ color: {TEXT}; }}
 QListView {{ background: transparent; border: none; outline: none; }}
 QScrollBar:vertical {{ background: #2a2a36; width: 10px; margin: 0; }}
 QScrollBar::handle:vertical {{ background: {STEEL}; border: 1px outset {STEEL_HI}; min-height: 24px; }}
@@ -807,6 +813,8 @@ QLabel#time {{ color: {MUTED}; }}
 QLabel#channel {{ color: {CYAN}; }}
 QLabel#hint {{ color: {MUTED}; }}
 QLabel#badge {{ color: #1a0533; background: {YELLOW}; border-radius: 4px; padding: 0 5px; font-weight: bold; }}
+QLabel#recs_title {{ color: {PINK}; }}
+QLabel#update_text {{ color: {TEXT}; }}
 QAbstractButton#chip {{
   color: {TEXT}; background: rgba(255, 42, 109, 38); border: 1px solid rgba(255, 42, 109, 120);
   border-radius: 9px; padding: 1px 8px; font-size: 8pt;
@@ -879,8 +887,407 @@ class Chip(QAbstractButton):
         p.drawText(r, Qt.AlignCenter, self.text())
 
 
+class RecTile(QWidget):
+    """One recommendation: a small thumbnail with its length, the title
+    under it."""
+    TW, TH = 104, 58
+    activated = Signal(dict)
+    menu_requested = Signal(dict, QPoint)
+
+    def __init__(self, win, parent=None):
+        super().__init__(parent)
+        self.win = win
+        self.d = None
+        self._hover = False
+        self.f_title = QFont(FONT_UI, 8)
+        self.f_dur = QFont(FONT_MONO, 7)
+        self.setFixedSize(self.TW, self.TH + QFontMetrics(self.f_title).height() + 4)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def set_item(self, d):
+        self.d = d
+        if d:
+            tip = d.get("title", "")
+            if d.get("channel"):
+                tip += "\n" + d["channel"]
+            self.setToolTip(tip)
+            self.win.request_thumb(d.get("id", ""), lambda *_: self.update())
+        else:
+            self.setToolTip("")
+        self.update()
+
+    def enterEvent(self, e):
+        self._hover = True
+        self.update()
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self.update()
+
+    def mouseReleaseEvent(self, e):
+        if not self.d:
+            return
+        if e.button() == Qt.LeftButton:
+            self.activated.emit(self.d)
+        elif e.button() == Qt.MiddleButton:
+            self.win.open_in_browser(self.d)
+
+    def contextMenuEvent(self, e):
+        if self.d:
+            self.menu_requested.emit(self.d, e.globalPos())
+
+    def paintEvent(self, e):
+        if not self.d:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        tr = QRectF(1, 1, self.TW - 2, self.TH - 2)
+        rad = 1 if classic() else 6
+        path = QPainterPath()
+        path.addRoundedRect(tr, rad, rad)
+        p.save()
+        p.setClipPath(path)
+        pm = self.win.thumbs.get(self.d.get("id", ""))
+        if pm:
+            sc = max(tr.width() / pm.width(), tr.height() / pm.height())
+            sw, sh = pm.width() * sc, pm.height() * sc
+            p.drawPixmap(QRectF(tr.center().x() - sw / 2, tr.center().y() - sh / 2, sw, sh), pm, QRectF(pm.rect()))
+        else:
+            p.fillRect(tr, QColor(28, 28, 38) if classic() else QColor(30, 6, 60, 200))
+        if self._hover:
+            p.fillRect(tr, QColor(255, 255, 255, 28))
+        dur = self.d.get("duration", "")
+        if dur:
+            p.setFont(self.f_dur)
+            fm = QFontMetrics(self.f_dur)
+            dw = fm.horizontalAdvance(dur) + 6
+            dr = QRectF(tr.right() - dw - 2, tr.bottom() - fm.height() - 2, dw, fm.height())
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(10, 0, 25, 210))
+            p.drawRoundedRect(dr, 2, 2)
+            p.setPen(QColor(YELLOW if dur == "LIVE" else "#ffffff"))
+            p.drawText(dr, Qt.AlignCenter, dur)
+        p.restore()
+        p.setBrush(Qt.NoBrush)
+        if classic():
+            p.setPen(QPen(QColor(CYAN if self._hover else "#3a3a4a"), 1))
+        else:
+            p.setPen(QPen(qcolor(CYAN, 0.9) if self._hover else qcolor(PINK, 0.45), 1.2))
+        p.drawPath(path)
+        p.setFont(self.f_title)
+        fm = QFontMetrics(self.f_title)
+        p.setPen(QColor(CYAN if self._hover else TEXT))
+        p.drawText(QPointF(1, self.TH + 2 + fm.ascent()), fm.elidedText(self.d.get("title", ""), Qt.ElideRight, self.TW - 2))
+
+
+class RecsStrip(QWidget):
+    """The small strip of recommendations at the bottom of the player."""
+    COUNT = 5
+
+    def __init__(self, win, parent=None):
+        super().__init__(parent)
+        self.win = win
+        self.items = []
+        self.page = 0
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 4, 0, 0)
+        lay.setSpacing(4)
+        hdr = QHBoxLayout()
+        hdr.setSpacing(6)
+        self.title = QLabel(T("recs_title"))
+        self.title.setObjectName("recs_title")
+        f = QFont(FONT_DISPLAY, 7)
+        f.setWeight(QFont.Bold)
+        f.setLetterSpacing(QFont.AbsoluteSpacing, 1.2)
+        self.title.setFont(f)
+        hdr.addWidget(self.title)
+        self.source = QLabel("")
+        self.source.setObjectName("hint")
+        self.source.setFont(QFont(FONT_UI, 8))
+        self.source.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        hdr.addWidget(self.source, 1)
+        self.btn_more = IconButton("refresh", 22, 14, T("recs_more"))
+        hdr.addWidget(self.btn_more)
+        lay.addLayout(hdr)
+        self.row = QHBoxLayout()
+        self.row.setSpacing(0)
+        self.tiles = []
+        for i in range(self.COUNT):
+            t = RecTile(win)
+            self.tiles.append(t)
+            if i:
+                self.row.addStretch(1)
+            self.row.addWidget(t)
+        self.tiles_w = QWidget()
+        self.tiles_w.setLayout(self.row)
+        self.row.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(self.tiles_w)
+        self.status = QLabel("")
+        self.status.setObjectName("hint")
+        self.status.setFont(QFont(FONT_UI, 8))
+        self.status.setWordWrap(True)
+        self.status.setAlignment(Qt.AlignCenter)
+        self.status.setFixedHeight(self.tiles[0].height())
+        lay.addWidget(self.status)
+        self.set_status(T("recs_loading"))
+
+    def set_status(self, text):
+        self.status.setText(text)
+        self.status.setVisible(True)
+        self.tiles_w.setVisible(False)
+
+    def set_items(self, items, source):
+        self.items = items
+        self.page = 0
+        self.source.setText("· " + source if source else "")
+        self._show()
+
+    def next_page(self):
+        """True while there are more pages; False after the last one."""
+        if (self.page + 1) * self.COUNT >= len(self.items):
+            return False
+        self.page += 1
+        self._show()
+        return True
+
+    def _show(self):
+        chunk = self.items[self.page * self.COUNT:(self.page + 1) * self.COUNT]
+        if not chunk:
+            self.set_status(T("recs_empty"))
+            return
+        for i, t in enumerate(self.tiles):
+            t.set_item(chunk[i] if i < len(chunk) else None)
+        self.status.setVisible(False)
+        self.tiles_w.setVisible(True)
+
+    def retranslate(self):
+        self.title.setText(T("recs_title"))
+        self.btn_more.setToolTip(T("recs_more"))
+
+
+class UpdateBar(QWidget):
+    """A line in the player about a new version: offered, downloading,
+    ready to install."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(10, 4, 6, 4)
+        lay.setSpacing(6)
+        self.icon = QLabel()
+        lay.addWidget(self.icon)
+        self.text = QLabel("")
+        self.text.setObjectName("update_text")
+        self.text.setFont(QFont(FONT_UI, 9))
+        self.text.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        lay.addWidget(self.text, 1)
+        self.btn_a = Chip("")
+        self.btn_b = Chip("")
+        lay.addWidget(self.btn_a)
+        lay.addWidget(self.btn_b)
+        self.progress = 0.0
+        self.a = self.b = None
+        self.btn_a.clicked.connect(lambda: self.a and self.a())
+        self.btn_b.clicked.connect(lambda: self.b and self.b())
+
+    def show_state(self, text, a=None, b=None, tip="", progress=None):
+        """a, b: (label, callback) for the two buttons, or None."""
+        self.text.setText(text)
+        self.setToolTip(tip)
+        self.icon.setPixmap(icons.pixmap("download", CYAN if not classic() else ICON_DARK, 16,
+                                         self.devicePixelRatioF()))
+        for btn, spec, attr in ((self.btn_a, a, "a"), (self.btn_b, b, "b")):
+            btn.setVisible(bool(spec))
+            setattr(self, attr, spec[1] if spec else None)
+            if spec:
+                btn.setText(spec[0])
+        self.progress = progress if progress is not None else -1
+        self.show()
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        if classic():
+            draw_inset(p, r)
+            if self.progress >= 0:
+                p.fillRect(QRectF(r.left() + 1, r.bottom() - 3, (r.width() - 2) * self.progress, 2), QColor(CYAN))
+            return
+        p.setPen(QPen(qcolor(CYAN, 0.7), 1))
+        p.setBrush(qcolor(PURPLE, 0.28))
+        p.drawRoundedRect(r, 9, 9)
+        if self.progress >= 0:
+            g = QLinearGradient(r.left(), 0, r.right(), 0)
+            g.setColorAt(0, QColor(PINK))
+            g.setColorAt(1, QColor(CYAN))
+            p.setPen(Qt.NoPen)
+            p.setBrush(g)
+            p.drawRoundedRect(QRectF(r.left() + 8, r.bottom() - 4, (r.width() - 16) * self.progress, 2.5), 1, 1)
+
+
+class SettingsDialog(QDialog):
+    """Language, starting with the computer, the desktop shortcut,
+    recommendations, updates."""
+
+    def __init__(self, win):
+        super().__init__(win)
+        self.win = win
+        self.setWindowTitle(f"{APP_NAME} — {T('settings')}")
+        self.setObjectName("settings")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet(settings_stylesheet())
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(18, 16, 18, 14)
+        lay.setSpacing(10)
+        head = QLabel(T("settings"))
+        head.setObjectName("settings_head")
+        f = QFont(FONT_DISPLAY, 12)
+        f.setWeight(QFont.Bold)
+        head.setFont(f)
+        lay.addWidget(head)
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel(T("settings_language")))
+        self.lang = QComboBox()
+        for code, name in LANGS.items():
+            self.lang.addItem(name, code)
+        self.lang.setCurrentIndex(list(LANGS).index(i18n.LANG))
+        self.lang.currentIndexChanged.connect(self._lang)
+        row.addWidget(self.lang, 1)
+        lay.addLayout(row)
+
+        self.autostart = QCheckBox(T("settings_autostart"))
+        self.autostart.setChecked(integration.autostart_enabled())
+        self.autostart.toggled.connect(lambda on: self._apply(integration.set_autostart, on, self.autostart))
+        lay.addWidget(self.autostart)
+
+        self.shortcut = QCheckBox(T("settings_shortcut"))
+        exists, removable = integration.shortcut_state()
+        self.shortcut.setChecked(exists)
+        if not removable:
+            self.shortcut.setEnabled(False)
+            self.shortcut.setToolTip(T("settings_shortcut_all"))
+        self.shortcut.toggled.connect(lambda on: self._apply(integration.set_shortcut, on, self.shortcut))
+        lay.addWidget(self.shortcut)
+
+        self.recs = QCheckBox(T("settings_recs"))
+        self.recs.setChecked(win.recs_on)
+        self.recs.toggled.connect(win.set_recs_on)
+        lay.addWidget(self.recs)
+
+        sep = QFrame()
+        sep.setObjectName("sep")
+        sep.setFixedHeight(1)
+        lay.addWidget(sep)
+        upd = QLabel(T("settings_updates"))
+        upd.setObjectName("settings_sub")
+        lay.addWidget(upd)
+        self.auto_update = QCheckBox(T("settings_auto_update"))
+        self.auto_update.setChecked(win.updater.auto_check())
+        self.auto_update.toggled.connect(win.updater.set_auto_check)
+        lay.addWidget(self.auto_update)
+        row = QHBoxLayout()
+        ver = QLabel(T("settings_version", app=APP_NAME, v=VERSION))
+        ver.setObjectName("hint")
+        row.addWidget(ver, 1)
+        self.check = QPushButton(T("settings_check_now"))
+        self.check.setCursor(Qt.PointingHandCursor)
+        self.check.clicked.connect(self._check)
+        row.addWidget(self.check)
+        lay.addLayout(row)
+        self.upd_status = QLabel("")
+        self.upd_status.setObjectName("hint")
+        self.upd_status.setWordWrap(True)
+        self.upd_status.setMinimumHeight(2 * QFontMetrics(self.upd_status.font()).height())
+        self.upd_status.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        lay.addWidget(self.upd_status)
+
+        lay.addSpacing(4)
+        close = QPushButton(T("settings_close"))
+        close.setCursor(Qt.PointingHandCursor)
+        close.clicked.connect(self.accept)
+        close.setDefault(True)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(close)
+        lay.addLayout(row)
+        self.setMinimumWidth(420)
+        self.adjustSize()
+        # A fixed size: a tiling window manager cannot stretch it.
+        self.setFixedSize(self.sizeHint())
+        win.update_status.connect(self._on_update_status)
+
+    def _lang(self, i):
+        self.win.set_language(self.lang.itemData(i))
+        # Rebuilt in the new language, where it was.
+        pos = self.pos()
+        self.accept()
+        QTimer.singleShot(0, lambda: self.win.show_settings(pos))
+
+    def _apply(self, fn, on, box):
+        if fn(on):
+            return
+        box.blockSignals(True)
+        box.setChecked(not on)
+        box.blockSignals(False)
+        QMessageBox.warning(self, APP_NAME, T("settings_failed"))
+
+    def _check(self):
+        self.check.setEnabled(False)
+        self.upd_status.setText(T("upd_checking"))
+        self.win.check_updates(manual=True)
+
+    def _on_update_status(self, text):
+        self.check.setEnabled(True)
+        self.upd_status.setText(text)
+
+
+def settings_stylesheet():
+    if classic():
+        return """
+QDialog#settings { background: #d4d0c8; }
+QDialog#settings QLabel, QDialog#settings QCheckBox { color: #000000; }
+QLabel#settings_head { color: #0a246a; }
+QLabel#settings_sub { font-weight: bold; }
+QLabel#hint { color: #404040; }
+QFrame#sep { background: #808080; }
+QPushButton { background: #d4d0c8; color: #000000; border: 2px outset #f0f0f0; padding: 3px 14px; }
+QPushButton:pressed { border-style: inset; }
+QComboBox { background: #ffffff; color: #000000; border: 2px inset #808080; padding: 2px 6px; }
+QComboBox QAbstractItemView { background: #ffffff; color: #000000; selection-background-color: #0a246a;
+  selection-color: #ffffff; }
+QToolTip { background: #ffffe1; color: #000000; border: 1px solid #000000; }
+"""
+    return f"""
+QDialog#settings {{ background: #16052c; }}
+QDialog#settings QLabel, QDialog#settings QCheckBox {{ color: {TEXT}; }}
+QLabel#settings_head {{ color: {PINK}; }}
+QLabel#settings_sub {{ color: {CYAN}; font-weight: bold; }}
+QLabel#hint {{ color: {MUTED}; }}
+QFrame#sep {{ background: rgba(5, 217, 232, 90); }}
+QCheckBox {{ spacing: 8px; }}
+QCheckBox::indicator {{ width: 14px; height: 14px; border: 1px solid {PINK}; border-radius: 4px;
+  background: rgba(10, 2, 26, 200); }}
+QCheckBox::indicator:checked {{ background: {PINK}; border-color: {CYAN}; }}
+QCheckBox::indicator:disabled {{ border-color: {MUTED}; }}
+QPushButton {{ background: rgba(255, 42, 109, 60); color: {TEXT}; border: 1px solid {PINK}; border-radius: 10px;
+  padding: 4px 14px; }}
+QPushButton:hover {{ border-color: {CYAN}; color: {CYAN}; }}
+QPushButton:disabled {{ color: {MUTED}; border-color: {MUTED}; }}
+QComboBox {{ background: rgba(10, 2, 26, 220); color: {TEXT}; border: 1px solid {PINK}; border-radius: 8px;
+  padding: 3px 8px; }}
+QComboBox:hover {{ border-color: {CYAN}; }}
+QComboBox QAbstractItemView {{ background: #1a0533; color: {TEXT}; border: 1px solid {PINK};
+  selection-background-color: {PINK}; }}
+QToolTip {{ background: #1a0533; color: {TEXT}; border: 1px solid {PINK}; padding: 4px 6px; }}
+"""
+
+
 class Player(QWidget):
     PANEL_MARGIN = 10
+    update_status = Signal(str)   # for the settings window: the last check's outcome
 
     def __init__(self):
         super().__init__(None, Qt.Window | Qt.FramelessWindowHint)
@@ -912,6 +1319,28 @@ class Player(QWidget):
         self.player_h = 0
 
         self.net = QNetworkAccessManager(self)
+        self.started = time.monotonic()
+        # updates
+        self.updater = updater.Updater(self.net, self.settings, VERSION, self)
+        self.updater.checked.connect(self._on_update_checked)
+        self.updater.check_failed.connect(self._on_update_check_failed)
+        self.updater.progress.connect(self._on_update_progress)
+        self.updater.downloaded.connect(lambda v: self._show_update("ready"))
+        self.updater.download_failed.connect(self._on_update_download_failed)
+        self._upd_state = None
+        self._upd_err = ""
+        self._upd_pct = 0
+        self._manual_check = False
+        # recommendations
+        self.history = recommend.History(self.settings)
+        self.recs_on = self.settings.value("recs", "true") in (True, "true")
+        self.recs_req = 0
+        self.recs_key = None       # "google" or "local": where the shown ones came from
+        self.recs_loaded_at = 0.0
+        self._recs_vid = None
+        self._recs_done = True
+        self._heard_vid = None
+        self._heard_done = False
         self.ws = WsServer(self)
         self.ws.userscript = userscript_bytes()
         self.ws.ping = {"app": "yukitube-remote", "version": VERSION, "tabs": 0}
@@ -964,6 +1393,9 @@ class Player(QWidget):
         self.btn_account.setToolTip(T("account_signin"))
         self.btn_account.clicked.connect(self.account_menu)
         hdr.addWidget(self.btn_account)
+        self.btn_settings = IconButton("settings", 26, 16, T("settings"))
+        self.btn_settings.clicked.connect(lambda: self.show_settings())
+        hdr.addWidget(self.btn_settings)
         self.btn_skin = IconButton("palette", 26, 16, T("skin_tip"))
         self.btn_skin.clicked.connect(lambda: self.skin_menu(self.btn_skin.mapToGlobal(QPoint(0, 26))))
         self.btn_search = IconButton("search", 26, 16, T("search_tip"), checkable=True)
@@ -1098,6 +1530,21 @@ class Player(QWidget):
         self.ctl_w.setFixedWidth(WIDTH - 24)
         root.addWidget(self.ctl_w)
 
+        # a new version: offered, downloading, ready
+        self.update_bar = UpdateBar()
+        self.update_bar.setFixedWidth(WIDTH - 24)
+        self.update_bar.hide()
+        root.addWidget(self.update_bar)
+
+        # recommendations
+        self.recs = RecsStrip(self)
+        self.recs.setFixedWidth(WIDTH - 24)
+        self.recs.btn_more.clicked.connect(self.more_recs)
+        for t in self.recs.tiles:
+            t.activated.connect(self.play_rec)
+            t.menu_requested.connect(self.rec_menu)
+        root.addWidget(self.recs)
+
         # search panel
         self.search_panel = QWidget()
         sp = QVBoxLayout(self.search_panel)
@@ -1175,7 +1622,13 @@ class Player(QWidget):
                        (self.thumb, "thumb_tip")):
             w.setToolTip(T(key))
         self.btn_mini.setToolTip(T("full") if self.mini else T("compact"))
+        self.btn_settings.setToolTip(T("settings"))
         self.search_edit.setPlaceholderText(T("search_placeholder"))
+        self.recs.retranslate()
+        if self.recs_key:
+            self.load_recs()
+        if self._upd_state:
+            self._show_update(self._upd_state)
         if self.tray:
             self._fill_tray_menu()
         self.refresh_ui()
@@ -1243,6 +1696,8 @@ class Player(QWidget):
 
         # perspective grid
         if bottom > horizon:
+            p.save()
+            p.setClipRect(QRectF(r.left(), horizon - 1, r.width(), bottom - horizon + 1), Qt.IntersectClip)
             fade = QLinearGradient(0, horizon, 0, bottom)
             fade.setColorAt(0, QColor(30, 2, 50, int(120 * a)))
             fade.setColorAt(1, QColor(10, 0, 25, int(200 * a)))
@@ -1266,9 +1721,11 @@ class Player(QWidget):
             hg.setColorAt(1, qcolor(PINK, 0.0))
             p.setPen(QPen(QBrush(hg), 1.4))
             p.drawLine(QPointF(r.left(), horizon), QPointF(r.right(), horizon))
+            p.restore()
 
-        # search area gets a calmer, darker backdrop
-        if self.search_panel.isVisible():
+        # the area under the player (update, recommendations, search) gets a
+        # calmer, darker backdrop
+        if r.bottom() - bottom > 6:
             sr2 = QRectF(r.left(), bottom, r.width(), r.bottom() - bottom)
             p.fillRect(sr2, QColor(8, 1, 20, int(150 * a + 40)))
             sep = QLinearGradient(r.left(), 0, r.right(), 0)
@@ -1352,7 +1809,10 @@ class Player(QWidget):
             p.drawLine(QPointF(lcd.left() + 1, y), QPointF(lcd.right() - 1, y))
             y += 3
 
-        # the results get a display of their own
+        # the recommendations and the results get a display of their own
+        if self.recs.isVisible():
+            inner = self.recs.tiles_w if self.recs.tiles_w.isVisible() else self.recs.status
+            draw_inset(p, QRectF(inner.geometry().translated(self.recs.pos())).adjusted(-5, -3, 5, 3))
         if self.search_panel.isVisible():
             rv = self.results_view.geometry().translated(self.search_panel.pos())
             draw_inset(p, QRectF(rv).adjusted(-3, -3, 3, 3))
@@ -1428,7 +1888,10 @@ class Player(QWidget):
         self.btn_mini.setToolTip(T("full") if self.mini else T("compact"))
         for w in (self.t_cur, self.t_dur):
             w.setVisible(not self.mini)
+        self.recs.setVisible(self.recs_on and not self.mini)
         self._fit()
+        if self.recs.isVisible() and self.recs_key:
+            self._maybe_recs()
 
     # --------------------------------------------------------------- skins
     def skin_menu(self, pos):
@@ -1520,6 +1983,8 @@ class Player(QWidget):
         m.addAction(T("install_bridge"), self.install_bridge)
         m.addAction(T("how_connect"), self.show_help)
         m.addSeparator()
+        m.addAction(T("settings_menu"), lambda: self.show_settings())
+        m.addAction(T("check_updates"), lambda: self.check_updates(manual=True))
         m.addAction(T("about", app=APP_NAME, version=VERSION), self.show_about)
         m.addAction(T("quit"), QApplication.quit)
         m.exec(pos)
@@ -1612,6 +2077,8 @@ class Player(QWidget):
             self._check_account(tab)
         elif t == "search_results":
             self.on_agent_results(msg)
+        elif t == "recommendations":
+            self.on_agent_recs(msg)
         elif t == "hello":
             self.refresh_ui()
         elif t == "alive" and not tab["state"]:
@@ -2037,6 +2504,243 @@ class Player(QWidget):
         for cb in cbs:
             cb(pm)
 
+    # ------------------------------------------------------------ settings
+    def show_settings(self, pos=None):
+        dlg = SettingsDialog(self)
+        if pos is not None:
+            dlg.move(pos)
+        dlg.exec()
+
+    def set_recs_on(self, on):
+        self.recs_on = bool(on)
+        self.settings.setValue("recs", self.recs_on)
+        self._apply_mini()
+
+    # ------------------------------------------------------------- updates
+    def check_updates(self, manual=False):
+        self._manual_check = manual
+        if self.updater.downloading:
+            self.update_status.emit(T("upd_downloading", v=self.updater.latest.get("version", ""),
+                                      pct=self._upd_pct))
+            return
+        self.updater.check()
+
+    def _on_update_checked(self, info):
+        manual, self._manual_check = self._manual_check, False
+        if not info:
+            self.update_status.emit(T("upd_none", v=VERSION))
+            if self._upd_state == "available":
+                self._hide_update()
+            return
+        pending = self.updater.pending()
+        if pending and pending["version"] == info["version"]:
+            self._show_update("ready")
+            self.update_status.emit(T("upd_ready", v=info["version"]))
+            return
+        self._show_update("available")
+        self.update_status.emit(T("upd_available", v=info["version"]))
+        if not manual and self.tray:
+            self.tray.showMessage(APP_NAME, T("upd_notify", v=info["version"]), logo_icon(), 10000)
+
+    def _on_update_check_failed(self, err):
+        self._manual_check = False
+        self.update_status.emit(T("upd_failed", err=err))
+
+    def _on_update_progress(self, got, total):
+        pct = int(got * 100 / total) if total > 0 else 0
+        if pct != self._upd_pct or self._upd_state != "downloading":
+            self._upd_pct = pct
+            self._show_update("downloading")
+
+    def _on_update_download_failed(self, err):
+        if err == "Operation canceled":
+            return
+        self._upd_err = err
+        self._show_update("failed")
+
+    def _show_update(self, state):
+        self._upd_state = state
+        b = self.update_bar
+        v = self.updater.latest.get("version") or (self.updater.pending() or {}).get("version", "")
+        later = (T("upd_later"), self._hide_update)
+        if state == "available":
+            if self.updater.can_install() and self.updater.latest.get("url"):
+                b.show_state(T("upd_available", v=v), (T("upd_download"), self._download_update), later)
+            else:
+                b.show_state(T("upd_available", v=v), (T("upd_open_page"), self._open_release_page), later,
+                             tip=T("upd_page_tip"))
+        elif state == "downloading":
+            b.show_state(T("upd_downloading", v=v, pct=self._upd_pct), (T("upd_cancel"), self._cancel_update),
+                         progress=self._upd_pct / 100)
+        elif state == "ready":
+            tries = int(self.settings.value("update/tries", 0) or 0)
+            b.show_state(T("upd_ready", v=v), (T("upd_restart"), self._restart_to_update),
+                         (T("upd_next_start"), self._hide_update),
+                         tip=T("upd_retry_tip") if tries else T("upd_ready_tip"))
+        elif state == "failed":
+            b.show_state(T("upd_dl_failed", err=self._upd_err), (T("upd_retry"), self._download_update), later)
+        self._fit()
+
+    def _hide_update(self):
+        self._upd_state = None
+        self.update_bar.hide()
+        self._fit()
+
+    def _download_update(self):
+        self._upd_pct = 0
+        self._show_update("downloading")
+        self.updater.download()
+
+    def _cancel_update(self):
+        self.updater.cancel()
+        self._show_update("available")
+
+    def _open_release_page(self):
+        QDesktopServices.openUrl(QUrl(self.updater.latest.get("page") or updater.RELEASES_PAGE))
+        self._hide_update()
+
+    def _restart_to_update(self):
+        if self.updater.apply():
+            QApplication.quit()
+        else:
+            QMessageBox.warning(self, APP_NAME, T("upd_restart_failed"))
+
+    # ----------------------------------------------------- recommendations
+    def _count_play(self, st):
+        """A video counts as played after half a minute of playing."""
+        vid = st.get("id")
+        if vid != self._heard_vid:
+            self._heard_vid, self._heard_done = vid, False
+        if (vid and not self._heard_done and not st.get("paused", True) and not st.get("ad")
+                and (st.get("time") or 0) >= recommend.PLAYED_AFTER):
+            self._heard_done = True
+            self.history.add(vid, st.get("title", ""), st.get("channel", ""))
+
+    def _signed_in(self):
+        """True/False once YouTube says; None while it cannot tell yet."""
+        if not self.cur_key:
+            return None
+        return (self.cur_state.get("account") or {}).get("loggedIn")
+
+    def _maybe_recs(self):
+        """Loads recommendations when there are none yet, when the account
+        changes, and again for a new video after ten minutes."""
+        if not self.recs.isVisible():
+            return
+        acc = self._signed_in()
+        now = time.monotonic()
+        if acc is None and now - self.started < 8:
+            return  # YouTube is still starting
+        want = "google" if acc else "local"
+        vid = self.cur_state.get("id")
+        if want != self.recs_key:
+            self.load_recs()
+        elif vid and vid != self._recs_vid and now - self.recs_loaded_at > 600:
+            self.load_recs()
+
+    def _youtube_tab(self):
+        for k, t in self.tabs.items():
+            if t["state"].get("host") == "www.youtube.com":
+                return k, t
+        return None, None
+
+    def load_recs(self):
+        self.recs_req += 1
+        req = self.recs_req
+        self.recs_loaded_at = time.monotonic()
+        self._recs_vid = self.cur_state.get("id")
+        acc = self._signed_in()
+        self.recs_key = "google" if acc else "local"
+        if not self.recs.items:
+            self.recs.set_status(T("recs_loading"))
+        key, tab = self._youtube_tab()
+        if acc and tab:
+            self.ws.send(tab["conn"], {"type": "cmd", "tab": key, "action": "recommend", "reqId": req})
+            QTimer.singleShot(15000, lambda: self._recs_local(req) if req == self.recs_req and
+                              not self._recs_done else None)
+            self._recs_done = False
+            return
+        self._recs_local(req)
+
+    def on_agent_recs(self, msg):
+        req = msg.get("reqId")
+        if req != self.recs_req or self._recs_done:
+            return
+        self._recs_done = True
+        cur = self.cur_state.get("id")
+        items = [it for it in msg.get("items") or [] if it.get("id") != cur]
+        if items:
+            self.recs.set_items(items, T("recs_for_you"))
+            self._fit()
+        else:  # no Music tab for this account (yet): mixes of what plays here
+            self._recs_local(req)
+
+    def _yt_request(self, url):
+        r = QNetworkRequest(QUrl(url))
+        r.setRawHeader(b"User-Agent", ytsearch._UA.encode())
+        r.setRawHeader(b"Accept-Language", b"en-US,en;q=0.8")
+        r.setRawHeader(b"Cookie", b"SOCS=CAI; CONSENT=YES+")
+        r.setTransferTimeout(12000)
+        return r
+
+    def _recs_local(self, req):
+        """Music like what is played most here (and what plays now): the
+        YouTube Mix of each, songs only."""
+        self._recs_done = True
+        cur = self.cur_state.get("id")
+        seeds = self.history.seeds(3)
+        if cur and cur not in seeds:
+            seeds = [cur] + seeds[:2]
+        if not seeds:
+            self.recs.items = []
+            self.recs.set_status(T("recs_empty"))
+            return
+        got = {}
+
+        def done(rep, seed):
+            rep.deleteLater()
+            items = []
+            if rep.error() == QNetworkReply.NoError:
+                try:
+                    items = ytsearch.parse_mix(bytes(rep.readAll().data()).decode("utf-8", "replace"), 25)
+                except Exception:  # noqa: BLE001 — a page YouTube changed: no recommendations from it
+                    items = []
+            got[seed] = items
+            if len(got) < len(seeds) or req != self.recs_req:
+                return
+            merged = recommend.merge([got[s] for s in seeds], exclude=seeds + [cur], limit=30)
+            if merged:
+                self.recs.set_items(merged, T("recs_history"))
+            elif not self.recs.items:
+                self.recs.set_status(T("recs_failed"))
+            self._fit()
+
+        for seed in seeds:
+            rep = self.net.get(self._yt_request(f"https://www.youtube.com/watch?v={seed}&list=RD{seed}&hl=en"))
+            rep.finished.connect(lambda rep=rep, seed=seed: done(rep, seed))
+
+    def more_recs(self):
+        if not self.recs.next_page():
+            self.load_recs()
+
+    def play_rec(self, d):
+        if self.cur_key and self.cmd("open", {"id": d["id"]}):
+            self.title.set_text(d.get("title", ""))
+            self.mini_title.set_text(d.get("title", ""))
+            self.channel.setText(d.get("channel", ""))
+        elif self.host:
+            self.host.navigate_headless(f"https://www.youtube.com/watch?v={d['id']}")
+        else:
+            self.open_in_browser(d)
+
+    def rec_menu(self, d, pos):
+        m = QMenu(self)
+        m.addAction(T("play_here"), lambda: self.play_rec(d))
+        m.addAction(T("open_new_tab"), lambda: self.open_in_browser(d))
+        m.addAction(T("copy_link"), lambda: QGuiApplication.clipboard().setText(
+            f"https://www.youtube.com/watch?v={d['id']}"))
+        m.exec(pos)
+
     # ------------------------------------------------------------ ui sync
     def _tick(self):
         now = time.monotonic()
@@ -2047,6 +2751,7 @@ class Player(QWidget):
             self.refresh_ui()
         else:
             self._update_time()
+            self._maybe_recs()
 
     def _cur_time(self):
         st = self.cur_state
@@ -2141,6 +2846,8 @@ class Player(QWidget):
         self._sync_account(connected)
         self._update_time()
         self.results_view.viewport().update()
+        self._count_play(st)
+        self._maybe_recs()
 
 
 def load_fonts():
@@ -2225,6 +2932,14 @@ def main():
         QMessageBox.critical(None, APP_NAME,
                              T("port_busy", port=PORT, err=w.ws.error_string()))
         return 1
+    # A downloaded update is installed now: a helper does it once this
+    # process exits, then starts YukiTube again.
+    if w.updater.apply_at_start() and w.updater.apply():
+        return 0
+    if w.updater.pending():
+        w._show_update("ready")  # it did not install at the last start
+    elif w.updater.auto_check() and not os.environ.get("YUKITUBE_SCREENSHOT"):
+        QTimer.singleShot(4000, w.check_updates)
     pos = w.settings.value("pos")
     if isinstance(pos, QPoint):
         scr = QGuiApplication.screenAt(pos)

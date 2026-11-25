@@ -95,6 +95,11 @@ Section "Uninstall"
   SetShellVarContext all
   Delete "$DESKTOP\YukiTube.lnk"
   Delete "$SMPROGRAMS\YukiTube.lnk"
+  ; What the player's settings added for the user: the desktop shortcut and
+  ; starting with Windows.
+  SetShellVarContext current
+  Delete "$DESKTOP\YukiTube.lnk"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "YukiTube"
   RMDir /r "$INSTDIR"
   DeleteRegKey HKLM "${UNINST_KEY}"
   ; The profile in %LOCALAPPDATA%\YukiTube (sign-in, history) stays.

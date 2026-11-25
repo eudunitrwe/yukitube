@@ -11,6 +11,10 @@ data=${XDG_DATA_HOME:-$HOME/.local/share}
 
 if [[ ${1:-} == --uninstall ]]; then
   rm -f "$bin/yukitube" "$data/applications/yukitube.desktop" "$data/icons/hicolor/scalable/apps/yukitube.svg"
+  # What the player's settings added: starting with the computer, the desktop shortcut.
+  rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/autostart/yukitube.desktop"
+  desktop=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
+  rm -f "$desktop/yukitube.desktop"
   rm -rf "$data/yukitube/share"
   echo "YukiTube removed. Its profile is still in $data/yukitube/profile."
   exit 0
