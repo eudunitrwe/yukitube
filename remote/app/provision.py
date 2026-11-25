@@ -140,7 +140,9 @@ def install_bridge(firefox, profile, code, log=print):
     except OSError:
         pass
     deadline = time.monotonic() + TIMEOUT
-    env = dict(os.environ, MOZ_HEADLESS="1")
+    # Newer Firefox (160+) gives Marionette chrome-context access only with
+    # this variable; the --remote-allow-system-access flag alone is refused.
+    env = dict(os.environ, MOZ_HEADLESS="1", MOZ_REMOTE_ALLOW_SYSTEM_ACCESS="1")
     env.pop("MOZ_MARIONETTE", None)
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     proc = subprocess.Popen(
