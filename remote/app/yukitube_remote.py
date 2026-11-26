@@ -37,7 +37,7 @@ import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -84,6 +84,15 @@ SKINS = {
         "YELLOW": "#ebcb8b", "ORANGE": "#d08770", "TEXT": "#eceff4", "MUTED": "#a4afc2",
         "BG": "#323a48", "BG2": "#2a303c", "LAYER": "#2e3440", "CARD": "#3b4252", "LINE": "#434c5e",
         "TRACK": "#4c566a", "SHADE": "#3b4252", "ON_ACCENT": "#2e3440", "GOOD": "#a3be8c",
+    },
+    # Arch_D: Everforest's warm grey-green panels, moss-green accent, a soft
+    # forest glow and a green-to-aqua band along the top.
+    "arch_d": {
+        "STYLE": "flat", "RADIUS": 10,
+        "PINK": "#a7c080", "CYAN": "#bcd29a", "MAGENTA": "#83c092", "PURPLE": "#5d7a52",
+        "YELLOW": "#dbbc7f", "ORANGE": "#e69875", "TEXT": "#d3c6aa", "MUTED": "#9da9a0",
+        "BG": "#2d353b", "BG2": "#272e33", "LAYER": "#232a2e", "CARD": "#343f44", "LINE": "#475258",
+        "TRACK": "#6f7d75", "SHADE": "#3d484d", "ON_ACCENT": "#232a2e", "GOOD": "#83c092",
     },
 }
 SKIN = "retrowave"
@@ -718,7 +727,7 @@ class Logo(QWidget):
             return
         if flat():
             p.setPen(Qt.NoPen)
-            if SKIN == "nord":  # a cold frost gradient
+            if SKIN in ("nord", "arch_d"):  # a frost / moss-to-aqua gradient
                 g = QLinearGradient(26, 0, self.width(), 0)
                 g.setColorAt(0, QColor(PINK))
                 g.setColorAt(1, QColor(MAGENTA))
@@ -763,7 +772,7 @@ class StatusDot(QWidget):
         c = QPointF(6, 6)
         if flat():
             col = QColor(GOOD) if self._on else QColor("#c42b1c" if SKIN == "win11_light" else
-                                                         ("#bf616a" if SKIN == "nord" else "#ff99a4"))
+                                                         {"nord": "#bf616a", "arch_d": "#e67e80"}.get(SKIN, "#ff99a4"))
         else:
             col = QColor("#39ff9f") if self._on else QColor("#ff3b3b" if classic() else PINK)
         a = 1.0 if self._on else 0.45 + 0.55 * (0.5 + 0.5 * math.sin(self._phase))
@@ -2024,6 +2033,19 @@ class Player(QWidget):
             band.setColorAt(0.3, qcolor(MAGENTA, 0.9))
             band.setColorAt(0.7, qcolor(PINK, 0.9))
             band.setColorAt(1, qcolor(CYAN, 0.0))
+            p.fillRect(QRectF(r.left(), r.top(), r.width(), 2), band)
+        elif SKIN == "arch_d":
+            # a forest glow: moss and aqua light filtering in behind the header
+            for cx, col, rr in ((r.left() + r.width() * 0.25, PINK, 190), (r.right() - 110, MAGENTA, 150)):
+                g = QRadialGradient(QPointF(cx, r.top() - 40), rr)
+                g.setColorAt(0, qcolor(col, 0.16 * a))
+                g.setColorAt(1, qcolor(col, 0))
+                p.fillRect(QRectF(cx - rr, r.top(), rr * 2, rr), g)
+            band = QLinearGradient(r.left(), 0, r.right(), 0)
+            band.setColorAt(0, qcolor(PURPLE, 0.0))
+            band.setColorAt(0.3, qcolor(PINK, 0.9))
+            band.setColorAt(0.7, qcolor(MAGENTA, 0.9))
+            band.setColorAt(1, qcolor(MAGENTA, 0.0))
             p.fillRect(QRectF(r.left(), r.top(), r.width(), 2), band)
         ph = self.player_h or r.height()
         bottom = r.top() + ph + 4

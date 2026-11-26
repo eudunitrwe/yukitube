@@ -56,6 +56,7 @@ STRINGS = {
     "skin_win11_light": {"en": "Windows 11 (Light)", "ro": "Windows 11 (Luminos)", "ru": "Windows 11 (светлая)"},
     "skin_win11_dark": {"en": "Windows 11 (Dark)", "ro": "Windows 11 (Întunecat)", "ru": "Windows 11 (тёмная)"},
     "skin_nord": {"en": "Nord", "ro": "Nord", "ru": "Nord"},
+    "skin_arch_d": {"en": "Arch_D", "ro": "Arch_D", "ru": "Arch_D"},
     "language": {"en": "Language", "ro": "Limba", "ru": "Язык"},
     "grid_anim": {"en": "Grid animation", "ro": "Animație grilă", "ru": "Анимация сетки"},
     "transparency": {"en": "Transparency", "ro": "Transparență", "ru": "Прозрачность"},
