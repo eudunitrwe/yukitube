@@ -2117,12 +2117,12 @@ class Player(QWidget):
             if fade > 0:
                 i = line.find(APP_NAME)
                 head, tail = line[:i], line[i + len(APP_NAME):]
-                p.setPen(qcolor(MUTED, 0.11 * fade * a))
+                p.setPen(qcolor(MUTED, 0.145 * fade * a))
                 p.drawText(QPointF(x, y), head)
                 x2 = x + fm.horizontalAdvance(head)
-                p.setPen(qcolor(PINK, 0.26 * fade * a))
+                p.setPen(qcolor(PINK, 0.34 * fade * a))
                 p.drawText(QPointF(x2, y), APP_NAME)
-                p.setPen(qcolor(MUTED, 0.11 * fade * a))
+                p.setPen(qcolor(MUTED, 0.145 * fade * a))
                 p.drawText(QPointF(x2 + fm.horizontalAdvance(APP_NAME), y), tail)
             y += lh
             k += 1
