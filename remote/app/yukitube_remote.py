@@ -37,7 +37,7 @@ import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -125,6 +125,36 @@ def rgba(c, a):
 
 
 set_skin("retrowave")
+
+# The Arch_D skin's animation: real lines of YukiTube's own code (Python,
+# the bridge's JS, the Go launcher, the installers), the ones that name it,
+# scrolling behind the player like a terminal.
+CODE_LINES = (
+    'APP_NAME = "YukiTube"',
+    '# ------------------------------------------------------ YukiTube Firefox',
+    'return QSettings("YukiTube", "remote")',
+    'r.setRawHeader(b"User-Agent", f"YukiTube/{self.current}".encode())',
+    'headers={"Content-Type": "application/json", "X-YukiTube": "1"}, method="POST")',
+    's.setValue("YukiTube", f\'"{exe}"\')',
+    'exe = os.path.join(win_root(), "YukiTube.exe")',
+    '"""YukiTube launched with a link or words (or again, while running)."""',
+    "self.host = None       # FirefoxHost, when the remote runs YukiTube's Firefox",
+    'except Exception as ex:  # noqa: BLE001 - never keep YukiTube from opening',
+    '"Name=YukiTube\\n"',
+    '/* YukiTube bridge agent — runs inside the YouTube page.',
+    'headers: { "Content-Type": "application/json", "X-YukiTube": "1" },',
+    '// @name         YukiTube Bridge',
+    '"short_name": "YukiTube",',
+    'req.Header.Set("X-YukiTube", "1")',
+    'return filepath.Join(local, "YukiTube")',
+    'title, _ := syscall.UTF16PtrFromString("YukiTube")',
+    'key, _ := syscall.UTF16PtrFromString(`Software\\YukiTube\\remote`)',
+    '//\tYukiTube.exe <link|words>    play a link or search YouTube in the remote',
+    '((${#remote[@]})) || fail "The YukiTube remote is not installed."',
+    'InstallDir "$PROGRAMFILES32\\YukiTube"',
+    '!define MUI_FINISHPAGE_RUN "$INSTDIR\\YukiTube.exe"',
+    "Start-Process -FilePath (Join-Path $Root 'YukiTube.exe')",
+)
 
 # The classic skin's metal and bevels.
 STEEL_HI, STEEL, STEEL_LO = "#c9c9d6", "#9d9db0", "#6c6c82"
@@ -1548,6 +1578,7 @@ class Player(QWidget):
         self._thumb_wait = {}
         self.avatars = {}      # url -> QPixmap (null while it loads)
         self.grid_phase = 0.0
+        self.code_phase = 0.0
         self.player_h = 0
 
         self.net = QNetworkAccessManager(self)
@@ -2049,6 +2080,8 @@ class Player(QWidget):
             p.fillRect(QRectF(r.left(), r.top(), r.width(), 2), band)
         ph = self.player_h or r.height()
         bottom = r.top() + ph + 4
+        if SKIN == "arch_d":
+            self._paint_code_rain(p, QRectF(r.left(), r.top() + 2, r.width(), bottom - r.top() - 2), a)
         if r.bottom() - bottom > 6:
             p.fillRect(QRectF(r.left(), bottom, r.width(), r.bottom() - bottom), qcolor(LAYER, a))
             p.setPen(QPen(QColor(LINE), 1))
@@ -2058,6 +2091,42 @@ class Player(QWidget):
         p.setPen(QPen(QColor(LINE), 1))
         p.setBrush(Qt.NoBrush)
         p.drawPath(panel)
+
+    def _paint_code_rain(self, p, area, a):
+        """Arch_D: YukiTube's own code lines scroll up behind the player,
+        faint, with the name picked out in the accent colour."""
+        if area.height() <= 0:
+            return
+        p.save()
+        p.setClipRect(area, Qt.IntersectClip)
+        f = QFont(FONT_MONO, 8)
+        p.setFont(f)
+        fm = p.fontMetrics()
+        lh = fm.height() + 3
+        off = self.code_phase
+        first = int(off // lh)
+        y = area.top() - (off % lh) + fm.ascent()
+        n = len(CODE_LINES)
+        k = first
+        while y - fm.ascent() < area.bottom():
+            line = CODE_LINES[(k * 7) % n]  # a stride, so neighbours differ in language
+            x = area.left() + 14 + (k * 37 % 5) * 12
+            # fade in at the bottom, out at the top, like a terminal scrolling by
+            t = (y - area.top()) / max(1.0, area.height())
+            fade = min(1.0, t / 0.25, (1 - t) / 0.2) if 0 < t < 1 else 0.0
+            if fade > 0:
+                i = line.find(APP_NAME)
+                head, tail = line[:i], line[i + len(APP_NAME):]
+                p.setPen(qcolor(MUTED, 0.11 * fade * a))
+                p.drawText(QPointF(x, y), head)
+                x2 = x + fm.horizontalAdvance(head)
+                p.setPen(qcolor(PINK, 0.26 * fade * a))
+                p.drawText(QPointF(x2, y), APP_NAME)
+                p.setPen(qcolor(MUTED, 0.11 * fade * a))
+                p.drawText(QPointF(x2 + fm.horizontalAdvance(APP_NAME), y), tail)
+            y += lh
+            k += 1
+        p.restore()
 
     def _paint_classic(self):
         """The classic skin: a dark brushed-steel case, a ridged title strip
@@ -2145,11 +2214,12 @@ class Player(QWidget):
         self.player_h = g.bottom() + 8 - self.PANEL_MARGIN
 
     def _anim(self):
-        if STYLE != "neon":
+        if STYLE != "neon" and SKIN != "arch_d":
             return
         playing = self.cur_state and not self.cur_state.get("paused", True)
         if self.anim_on and playing and self.isVisible() and not self.isMinimized():
             self.grid_phase = (self.grid_phase + 0.04) % 1.0
+            self.code_phase = (self.code_phase + 0.7) % 1e6
             self.update(0, 0, self.width(), self.PANEL_MARGIN + self.player_h + 10)
 
     # ------------------------------------------------------------- window ui
@@ -2272,7 +2342,7 @@ class Player(QWidget):
             act.setCheckable(True)
             act.setChecked(code == i18n.LANG)
             act.triggered.connect(lambda _=False, c=code: self.set_language(c))
-        a = m.addAction(T("grid_anim"))
+        a = m.addAction(T("code_anim" if SKIN == "arch_d" else "grid_anim"))
         a.setCheckable(True)
         a.setChecked(self.anim_on)
         a.toggled.connect(lambda v: (setattr(self, "anim_on", v), self.settings.setValue("anim", v)))

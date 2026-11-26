@@ -1,8 +1,8 @@
 # YukiTube
 
-**🇬🇧 A small YouTube player with skins (retrowave neon, a classic 90s look, Windows 11 light/dark, Nord, or Arch_D in Everforest greens) — no ads, no "Video paused. Continue watching?". YouTube plays in a hidden Firefox behind it. For Linux and Windows 10/11.**
+**🇬🇧 A small YouTube player with skins (retrowave neon, a classic 90s look, Windows 11 light/dark, Nord, or Arch_D in Everforest greens, with its own code scrolling behind the player) — no ads, no "Video paused. Continue watching?". YouTube plays in a hidden Firefox behind it. For Linux and Windows 10/11.**
 
-**🇷🇴 Un player YouTube mic, cu skin-uri (retrowave neon, un look clasic din anii ’90, Windows 11 luminos/întunecat, Nord sau Arch_D în verdele Everforest) — fără reclame, fără „Continui vizionarea?”. YouTube cântă într-un Firefox ascuns, în spatele lui. Pentru Linux și Windows 10/11.**
+**🇷🇴 Un player YouTube mic, cu skin-uri (retrowave neon, un look clasic din anii ’90, Windows 11 luminos/întunecat, Nord sau Arch_D în verdele Everforest, cu propriul cod derulându-se în spatele playerului) — fără reclame, fără „Continui vizionarea?”. YouTube cântă într-un Firefox ascuns, în spatele lui. Pentru Linux și Windows 10/11.**
 
 Made by **[eudunitrwe](https://github.com/eudunitrwe)** with the help of **[Claude Code](https://claude.com/claude-code)**.
 Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude Code](https://claude.com/claude-code)**.

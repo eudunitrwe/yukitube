@@ -58,6 +58,7 @@ STRINGS = {
     "skin_nord": {"en": "Nord", "ro": "Nord", "ru": "Nord"},
     "skin_arch_d": {"en": "Arch_D", "ro": "Arch_D", "ru": "Arch_D"},
     "language": {"en": "Language", "ro": "Limba", "ru": "Язык"},
+    "code_anim": {"en": "Code animation", "ro": "Animație cod", "ru": "Анимация кода"},
     "grid_anim": {"en": "Grid animation", "ro": "Animație grilă", "ru": "Анимация сетки"},
     "transparency": {"en": "Transparency", "ro": "Transparență", "ru": "Прозрачность"},
     "opaque": {"en": "{pct}% opaque", "ro": "{pct}% opac", "ru": "Непрозрачность {pct}%"},
