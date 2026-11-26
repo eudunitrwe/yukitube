@@ -1,8 +1,8 @@
 # YukiTube
 
-**🇬🇧 A small YouTube player with skins (retrowave neon, or a classic 90s look) — no ads, no "Video paused. Continue watching?". YouTube plays in a hidden Firefox behind it. For Linux and Windows 10/11.**
+**🇬🇧 A small YouTube player with skins (retrowave neon, a classic 90s look, Windows 11 light/dark, or Nord) — no ads, no "Video paused. Continue watching?". YouTube plays in a hidden Firefox behind it. For Linux and Windows 10/11.**
 
-**🇷🇴 Un player YouTube mic, cu skin-uri (retrowave neon sau un look clasic din anii ’90) — fără reclame, fără „Continui vizionarea?”. YouTube cântă într-un Firefox ascuns, în spatele lui. Pentru Linux și Windows 10/11.**
+**🇷🇴 Un player YouTube mic, cu skin-uri (retrowave neon, un look clasic din anii ’90, Windows 11 luminos/întunecat sau Nord) — fără reclame, fără „Continui vizionarea?”. YouTube cântă într-un Firefox ascuns, în spatele lui. Pentru Linux și Windows 10/11.**
 
 Made by **[eudunitrwe](https://github.com/eudunitrwe)** with the help of **[Claude Code](https://claude.com/claude-code)**.
 Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude Code](https://claude.com/claude-code)**.
@@ -54,7 +54,7 @@ Firefox and the player are included; you need nothing else. If SmartScreen says 
 
 ### First run (both systems)
 
-Only the remote opens; nothing to click. The very first launch takes a few seconds longer ("Preparing YukiTube…") while YukiTube sets itself up. Search with 🔍 (or `Ctrl+F`) and click a result to play it. To sign in to YouTube, click the **account button** (👤): the YouTube window opens on Google's sign-in page; close it when you're done. The ↗ button (or menu ⋮) shows or hides the YouTube window. The player starts in English; menu ⋮ → **Language** switches to Română or Русский. Closing the player stops YouTube too.
+Only the remote opens; nothing to click. The very first launch takes a few seconds longer ("Preparing YukiTube…") while YukiTube sets itself up. Search with 🔍 (or `Ctrl+F`) and click a result to play it; the ✕ next to the line above the search box (or `Esc`) closes the search. To sign in to YouTube, click the **account button** (👤): the YouTube window opens on Google's sign-in page; close it when you're done. The ↗ button (or menu ⋮) shows or hides the YouTube window. The player starts in English; menu ⋮ → **Language** switches to Română or Русский. Closing the player stops YouTube too.
 
 ### Settings, updates, recommendations
 
@@ -102,7 +102,7 @@ Firefox și telecomanda sunt incluse; nu-ți mai trebuie nimic. Dacă SmartScree
 
 ### Prima pornire (ambele sisteme)
 
-Se deschide doar telecomanda; nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus („Preparing YukiTube…”), cât YukiTube se pregătește singur. Caută cu 🔍 (sau `Ctrl+F`) și apasă pe un rezultat ca să-l redai. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤): se deschide fereastra YouTube la autentificarea Google; închide-o când ai terminat. Butonul ↗ (sau meniul ⋮) arată sau ascunde fereastra YouTube. Telecomanda pornește în engleză; meniul ⋮ → **Language / Limba** o trece în română sau rusă. Când închizi telecomanda, se oprește și YouTube.
+Se deschide doar telecomanda; nu trebuie apăsat nimic. Prima pornire durează câteva secunde în plus („Preparing YukiTube…”), cât YukiTube se pregătește singur. Caută cu 🔍 (sau `Ctrl+F`) și apasă pe un rezultat ca să-l redai; ✕ de lângă linia de deasupra căutării (sau `Esc`) închide căutarea. Ca să te autentifici în YouTube, apasă **butonul de cont** (👤): se deschide fereastra YouTube la autentificarea Google; închide-o când ai terminat. Butonul ↗ (sau meniul ⋮) arată sau ascunde fereastra YouTube. Telecomanda pornește în engleză; meniul ⋮ → **Language / Limba** o trece în română sau rusă. Când închizi telecomanda, se oprește și YouTube.
 
 ### Setări, actualizări, recomandări
 

@@ -37,7 +37,7 @@ import hyprland
 from wsserver import HTTP_CID, WsServer
 
 APP_NAME = "YukiTube"
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 PORT = int(os.environ.get("YUKITUBE_PORT") or "8975")
 # Wide enough for most titles to fit on two lines in the search results.
 WIDTH = 580
@@ -56,19 +56,63 @@ SKINS = {
         "PINK": "#e8c547", "CYAN": "#3cff3c", "MAGENTA": "#b8962a", "PURPLE": "#5a5a80",
         "YELLOW": "#ffe36b", "ORANGE": "#ff9b2f", "TEXT": "#22ff22", "MUTED": "#a7aac2",
     },
+    # Flat skins (STYLE "flat"): a plain rounded panel, no glow. PINK is the
+    # accent, CYAN its hover shade; BG/BG2 the panel (top/bottom), LAYER the
+    # area under the player, CARD raised surfaces (fields, menus), LINE
+    # borders and dividers, TRACK slider rails, SHADE empty thumbnails,
+    # ON_ACCENT text and icons on the accent, GOOD the "connected" dot.
+    # Windows 11, light: Mica grey, white cards, the default blue accent.
+    "win11_light": {
+        "STYLE": "flat", "RADIUS": 8,
+        "PINK": "#005fb8", "CYAN": "#0067c0", "MAGENTA": "#005fb8", "PURPLE": "#003e92",
+        "YELLOW": "#fce100", "ORANGE": "#ca5010", "TEXT": "#1b1b1b", "MUTED": "#5d5d5d",
+        "BG": "#f3f3f3", "BG2": "#eeeeee", "LAYER": "#f9f9f9", "CARD": "#ffffff", "LINE": "#dcdcdc",
+        "TRACK": "#8a8a8a", "SHADE": "#e3e3e3", "ON_ACCENT": "#ffffff", "GOOD": "#0f7b0f",
+    },
+    # Windows 11, dark.
+    "win11_dark": {
+        "STYLE": "flat", "RADIUS": 8,
+        "PINK": "#4cc2ff", "CYAN": "#99ebff", "MAGENTA": "#4cc2ff", "PURPLE": "#0078d4",
+        "YELLOW": "#fce100", "ORANGE": "#f7630c", "TEXT": "#ffffff", "MUTED": "#c5c5c5",
+        "BG": "#202020", "BG2": "#1c1c1c", "LAYER": "#272727", "CARD": "#2d2d2d", "LINE": "#3a3a3a",
+        "TRACK": "#9a9a9a", "SHADE": "#333333", "ON_ACCENT": "#000000", "GOOD": "#6ccb5f",
+    },
+    # Nord: Polar Night panels, Frost accents, a cold aurora along the top.
+    "nord": {
+        "STYLE": "flat", "RADIUS": 12,
+        "PINK": "#88c0d0", "CYAN": "#8fbcbb", "MAGENTA": "#81a1c1", "PURPLE": "#5e81ac",
+        "YELLOW": "#ebcb8b", "ORANGE": "#d08770", "TEXT": "#eceff4", "MUTED": "#a4afc2",
+        "BG": "#323a48", "BG2": "#2a303c", "LAYER": "#2e3440", "CARD": "#3b4252", "LINE": "#434c5e",
+        "TRACK": "#4c566a", "SHADE": "#3b4252", "ON_ACCENT": "#2e3440", "GOOD": "#a3be8c",
+    },
 }
 SKIN = "retrowave"
 PINK = CYAN = MAGENTA = PURPLE = YELLOW = ORANGE = TEXT = MUTED = ""
+STYLE = "neon"
+RADIUS = 18
+BG = BG2 = LAYER = CARD = LINE = TRACK = SHADE = ON_ACCENT = GOOD = ""
 
 
 def set_skin(name):
     global SKIN
     SKIN = name if name in SKINS else "retrowave"
     globals().update({k: v for k, v in SKINS[SKIN].items() if k.isupper()})
+    if "STYLE" not in SKINS[SKIN]:
+        globals().update(STYLE="classic" if SKIN == "classic" else "neon", RADIUS=18)
 
 
 def classic():
     return SKIN == "classic"
+
+
+def flat():
+    return STYLE == "flat"
+
+
+def rgba(c, a):
+    """A colour for Qt stylesheets, with alpha a in [0, 1]."""
+    q = QColor(c)
+    return f"rgba({q.red()}, {q.green()}, {q.blue()}, {int(round(a * 255))})"
 
 
 set_skin("retrowave")
@@ -233,6 +277,23 @@ class IconButton(QAbstractButton):
             off = 1 if down else 0
             p.drawPixmap(QPointF((w - isz) / 2 + off, (h - isz) / 2 + off), pm)
             return
+        if flat():
+            if self.isEnabled() and (self._hover or self.isDown()):
+                p.setPen(Qt.NoPen)
+                p.setBrush(qcolor(TEXT, 0.06 if self.isDown() else 0.10))
+                p.drawRoundedRect(QRectF(1, 1, w - 2, h - 2), 5, 5)
+            col = self.color or TEXT
+            if self.isChecked():
+                col = self.checked_color or PINK
+            elif self._hover and self.isEnabled() and self.hover_color:
+                col = self.hover_color
+            pm = icons.pixmap(self._icon, col, self._isz, self.devicePixelRatioF())
+            p.drawPixmap(QPointF((w - self._isz) / 2, (h - self._isz) / 2), pm)
+            if self.isChecked():
+                p.setPen(Qt.NoPen)
+                p.setBrush(qcolor(self.checked_color or PINK))
+                p.drawRoundedRect(QRectF(w / 2 - 4, h - 3, 8, 2), 1, 1)
+            return
         if self.isEnabled() and (self._hover or self.isDown()):
             g = QRadialGradient(c, w / 2)
             g.setColorAt(0, qcolor(CYAN, 0.32 if self.isDown() else 0.22))
@@ -272,6 +333,16 @@ class PlayButton(IconButton):
             pm = icons.pixmap(self._icon, ICON_DARK, isz, self.devicePixelRatioF())
             off = 1 if self.isDown() else 0
             p.drawPixmap(QPointF((w - isz) / 2 + off + (1 if self._icon == "play" else 0), (w - isz) / 2 + off), pm)
+            return
+        if flat():
+            r = w / 2 - 6
+            p.setPen(Qt.NoPen)
+            p.setBrush(qcolor(PURPLE if self.isDown() else (CYAN if self._hover else PINK)))
+            p.drawEllipse(c, r, r)
+            isz = self._isz - 4
+            pm = icons.pixmap(self._icon, ON_ACCENT, isz, self.devicePixelRatioF())
+            dx = 1.5 if self._icon == "play" else 0
+            p.drawPixmap(QPointF((w - isz) / 2 + dx, (w - isz) / 2), pm)
             return
         glow = QRadialGradient(c, w / 2)
         glow.setColorAt(0.55, qcolor(PINK, 0.55 if self._hover else 0.35))
@@ -424,6 +495,24 @@ class NeonSlider(QWidget):
             kw, kh = 9, min(self.height() - 2, 14)
             draw_bevel(p, QRectF(x - kw / 2, cy - kh / 2, kw, kh), sunken=self._drag)
             return
+        if flat():
+            th = 4
+            p.setPen(Qt.NoPen)
+            p.setBrush(qcolor(TRACK, 0.55))
+            p.drawRoundedRect(QRectF(m, cy - th / 2, w, th), th / 2, th / 2)
+            x = m + w * self._v
+            if self._v > 0:
+                p.setBrush(QColor(PINK))
+                p.drawRoundedRect(QRectF(m, cy - th / 2, x - m, th), th / 2, th / 2)
+            kr = self._knob + 1
+            p.setBrush(QColor(CARD))
+            p.setPen(QPen(QColor(LINE), 1))
+            p.drawEllipse(QPointF(x, cy), kr, kr)
+            inner = kr * (0.62 if (self._hover or self._drag) else 0.48)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(PINK))
+            p.drawEllipse(QPointF(x, cy), inner, inner)
+            return
         th = 5 if (self._hover or self._drag) else 4
         groove = QRectF(m, cy - th / 2, w, th)
         p.setPen(Qt.NoPen)
@@ -568,7 +657,8 @@ class Thumb(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         r = QRectF(1, 1, self.width() - 2, self.height() - 2)
         path = QPainterPath()
-        path.addRoundedRect(r, 1 if classic() else 8, 1 if classic() else 8)
+        rad = 1 if classic() else (6 if flat() else 8)
+        path.addRoundedRect(r, rad, rad)
         p.save()
         p.setClipPath(path)
         if self._pm and not self._pm.isNull():
@@ -578,7 +668,7 @@ class Thumb(QWidget):
             p.drawPixmap(QRectF(r.center().x() - sw / 2, r.center().y() - sh / 2, sw, sh), src,
                          QRectF(src.rect()))
         else:
-            p.fillRect(r, QColor(0, 0, 0) if classic() else QColor(15, 3, 35, 200))
+            p.fillRect(r, QColor(0, 0, 0) if classic() else (QColor(SHADE) if flat() else QColor(15, 3, 35, 200)))
             lp = logo_pixmap(int(r.height() * 0.7 * self.devicePixelRatioF()))
             lp.setDevicePixelRatio(self.devicePixelRatioF())
             s = r.height() * 0.7
@@ -587,6 +677,11 @@ class Thumb(QWidget):
         if classic():
             p.setRenderHint(QPainter.Antialiasing, False)
             draw_inset(p, QRectF(0, 0, self.width() - 1, self.height() - 1), QColor(0, 0, 0, 0))
+            return
+        if flat():
+            p.setPen(QPen(QColor(LINE), 1))
+            p.setBrush(Qt.NoBrush)
+            p.drawPath(path)
             return
         g = QLinearGradient(0, 0, self.width(), self.height())
         g.setColorAt(0, QColor(PINK))
@@ -619,6 +714,17 @@ class Logo(QWidget):
             p.setBrush(QColor(BEVEL_DARK))
             p.drawPath(path.translated(1, 1))
             p.setBrush(QColor("#e6e6f0"))
+            p.drawPath(path)
+            return
+        if flat():
+            p.setPen(Qt.NoPen)
+            if SKIN == "nord":  # a cold frost gradient
+                g = QLinearGradient(26, 0, self.width(), 0)
+                g.setColorAt(0, QColor(PINK))
+                g.setColorAt(1, QColor(MAGENTA))
+                p.setBrush(g)
+            else:
+                p.setBrush(QColor(TEXT))
             p.drawPath(path)
             return
         p.setPen(QPen(qcolor(PINK, 0.35), 3))
@@ -655,7 +761,11 @@ class StatusDot(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         c = QPointF(6, 6)
-        col = QColor("#39ff9f") if self._on else QColor("#ff3b3b" if classic() else PINK)
+        if flat():
+            col = QColor(GOOD) if self._on else QColor("#c42b1c" if SKIN == "win11_light" else
+                                                         ("#bf616a" if SKIN == "nord" else "#ff99a4"))
+        else:
+            col = QColor("#39ff9f") if self._on else QColor("#ff3b3b" if classic() else PINK)
         a = 1.0 if self._on else 0.45 + 0.55 * (0.5 + 0.5 * math.sin(self._phase))
         g = QRadialGradient(c, 6)
         g.setColorAt(0, qcolor(col.name(), 0.7 * a))
@@ -713,7 +823,13 @@ class ResultDelegate(QStyledItemDelegate):
         hover = bool(opt.state & QStyle.State_MouseOver)
         sel = bool(opt.state & QStyle.State_Selected)
         playing = d.get("id") and d.get("id") == self.win.cur_state.get("id")
-        if hover or sel:
+        if (hover or sel) and flat():
+            p.setPen(Qt.NoPen)
+            p.setBrush(qcolor(TEXT, 0.09 if sel else 0.06))
+            p.drawRoundedRect(r, 6, 6)
+            p.setBrush(QColor(PINK))
+            p.drawRoundedRect(QRectF(r.left(), r.top() + 14, 3, r.height() - 28), 1.5, 1.5)
+        elif hover or sel:
             g = QLinearGradient(r.left(), 0, r.right(), 0)
             g.setColorAt(0, qcolor(PINK, 0.30 if sel else 0.22))
             g.setColorAt(1, qcolor(PURPLE, 0.05))
@@ -734,7 +850,7 @@ class ResultDelegate(QStyledItemDelegate):
             sw, sh = pm.width() * sc, pm.height() * sc
             p.drawPixmap(QRectF(tr.center().x() - sw / 2, tr.center().y() - sh / 2, sw, sh), pm, QRectF(pm.rect()))
         else:
-            p.fillRect(tr, QColor(28, 28, 38) if classic() else QColor(30, 6, 60, 200))
+            p.fillRect(tr, QColor(28, 28, 38) if classic() else (QColor(SHADE) if flat() else QColor(30, 6, 60, 200)))
             self.win.request_thumb(d.get("id", ""), lambda *_: self.win.results_view.viewport().update())
         dur = d.get("duration", "")
         if dur:
@@ -745,10 +861,13 @@ class ResultDelegate(QStyledItemDelegate):
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(10, 0, 25, 210))
             p.drawRoundedRect(dr, 3, 3)
-            p.setPen(QColor(YELLOW if dur == "LIVE" else TEXT))
+            p.setPen(QColor(YELLOW if dur == "LIVE" else ("#ffffff" if flat() else TEXT)))
             p.drawText(dr, Qt.AlignCenter, dur)
         p.restore()
-        p.setPen(QPen(qcolor(PINK if playing else CYAN, 0.8 if playing else 0.35), 1.2))
+        if flat():
+            p.setPen(QPen(QColor(PINK) if playing else QColor(LINE), 1.2 if playing else 1))
+        else:
+            p.setPen(QPen(qcolor(PINK if playing else CYAN, 0.8 if playing else 0.35), 1.2))
         p.setBrush(Qt.NoBrush)
         p.drawPath(path)
         # text
@@ -800,6 +919,35 @@ QMenu::item:disabled {{ color: #808080; }}
 QMenu::separator {{ height: 1px; background: #808080; margin: 3px 4px; }}
 QMenu::indicator {{ width: 8px; height: 8px; left: 6px; }}
 QMenu::indicator:checked {{ background: #000000; }}
+"""
+    if flat():
+        return f"""
+QWidget {{ color: {TEXT}; }}
+QToolTip {{ background: {CARD}; color: {TEXT}; border: 1px solid {LINE}; padding: 4px 6px; border-radius: 4px; }}
+QLineEdit#search {{
+  background: {CARD}; border: 1px solid {LINE}; border-bottom: 1px solid {TRACK}; border-radius: 6px;
+  padding: 5px 12px 5px 34px; color: {TEXT}; selection-background-color: {PINK}; selection-color: {ON_ACCENT};
+  font-size: 10pt;
+}}
+QLineEdit#search:focus {{ border-bottom: 2px solid {PINK}; }}
+QLabel#time {{ color: {MUTED}; }}
+QLabel#channel {{ color: {MUTED}; }}
+QLabel#hint {{ color: {MUTED}; }}
+QLabel#badge {{ color: #000000; background: {YELLOW}; border-radius: 4px; padding: 0 5px; font-weight: bold; }}
+QLabel#recs_title {{ color: {PINK}; }}
+QLabel#update_text {{ color: {TEXT}; }}
+QListView {{ background: transparent; border: none; outline: none; }}
+QScrollBar:vertical {{ background: transparent; width: 6px; margin: 2px; }}
+QScrollBar::handle:vertical {{ background: {rgba(TRACK, 0.6)}; border-radius: 3px; min-height: 24px; }}
+QScrollBar::handle:vertical:hover {{ background: {TRACK}; }}
+QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {{ height: 0; background: none; }}
+QMenu {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px; padding: 4px; color: {TEXT}; }}
+QMenu::item {{ padding: 5px 22px 5px 22px; border-radius: 4px; }}
+QMenu::item:selected {{ background: {rgba(TEXT, 0.08)}; }}
+QMenu::item:disabled {{ color: {MUTED}; }}
+QMenu::separator {{ height: 1px; background: {LINE}; margin: 4px 6px; }}
+QMenu::indicator {{ width: 8px; height: 8px; left: 7px; }}
+QMenu::indicator:checked {{ background: {PINK}; border-radius: 4px; }}
 """
     return f"""
 QWidget {{ color: {TEXT}; }}
@@ -880,6 +1028,13 @@ class Chip(QAbstractButton):
             p.setPen(QColor(ICON_DARK))
             p.drawText(r, Qt.AlignCenter, self.text())
             return
+        if flat():
+            p.setBrush(QColor(PINK) if on else (qcolor(TEXT, 0.08) if self._hover else QColor(CARD)))
+            p.setPen(QPen(QColor(PINK) if on else QColor(LINE), 1))
+            p.drawRoundedRect(r, 4, 4)
+            p.setPen(QColor(ON_ACCENT) if on else QColor(TEXT))
+            p.drawText(r, Qt.AlignCenter, self.text())
+            return
         p.setBrush(qcolor(PINK, 0.65 if on else 0.15))
         p.setPen(QPen(QColor(CYAN) if self._hover else qcolor(PINK, 0.6), 1))
         p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
@@ -948,7 +1103,7 @@ class RecTile(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         tr = QRectF(1, 1, self.TW - 2, self.TH - 2)
-        rad = 1 if classic() else 6
+        rad = 1 if classic() else (4 if flat() else 6)
         path = QPainterPath()
         path.addRoundedRect(tr, rad, rad)
         p.save()
@@ -959,7 +1114,7 @@ class RecTile(QWidget):
             sw, sh = pm.width() * sc, pm.height() * sc
             p.drawPixmap(QRectF(tr.center().x() - sw / 2, tr.center().y() - sh / 2, sw, sh), pm, QRectF(pm.rect()))
         else:
-            p.fillRect(tr, QColor(28, 28, 38) if classic() else QColor(30, 6, 60, 200))
+            p.fillRect(tr, QColor(28, 28, 38) if classic() else (QColor(SHADE) if flat() else QColor(30, 6, 60, 200)))
         if self._hover:
             p.fillRect(tr, QColor(255, 255, 255, 28))
         dur = self.d.get("duration", "")
@@ -977,13 +1132,45 @@ class RecTile(QWidget):
         p.setBrush(Qt.NoBrush)
         if classic():
             p.setPen(QPen(QColor(CYAN if self._hover else "#3a3a4a"), 1))
+        elif flat():
+            p.setPen(QPen(QColor(PINK) if self._hover else QColor(LINE), 1.2 if self._hover else 1))
         else:
             p.setPen(QPen(qcolor(CYAN, 0.9) if self._hover else qcolor(PINK, 0.45), 1.2))
         p.drawPath(path)
         p.setFont(self.f_title)
         fm = QFontMetrics(self.f_title)
-        p.setPen(QColor(CYAN if self._hover else TEXT))
+        p.setPen(QColor((PINK if flat() else CYAN) if self._hover else TEXT))
         p.drawText(QPointF(1, self.TH + 2 + fm.ascent()), fm.elidedText(self.d.get("title", ""), Qt.ElideRight, self.TW - 2))
+
+
+class Divider(QWidget):
+    """A thin horizontal line in the current skin's style."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(6)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        w, y = self.width(), self.height() / 2
+        if classic():  # an etched groove
+            p.setPen(QPen(QColor(BEVEL_DARK), 1))
+            p.drawLine(QPointF(0, y - 0.5), QPointF(w, y - 0.5))
+            p.setPen(QPen(QColor("#8a8aa0"), 1))
+            p.drawLine(QPointF(0, y + 0.5), QPointF(w, y + 0.5))
+            return
+        if flat():
+            p.setPen(QPen(QColor(LINE), 1))
+            p.drawLine(QPointF(0, y), QPointF(w, y))
+            return
+        g = QLinearGradient(0, 0, w, 0)
+        g.setColorAt(0, qcolor(PINK, 0))
+        g.setColorAt(0.25, qcolor(PINK, 0.8))
+        g.setColorAt(0.75, qcolor(CYAN, 0.8))
+        g.setColorAt(1, qcolor(CYAN, 0.1))
+        p.setPen(QPen(QBrush(g), 1))
+        p.drawLine(QPointF(0, y), QPointF(w, y))
 
 
 class RecsStrip(QWidget):
@@ -1100,7 +1287,7 @@ class UpdateBar(QWidget):
         """a, b: (label, callback) for the two buttons, or None."""
         self.text.setText(text)
         self.setToolTip(tip)
-        self.icon.setPixmap(icons.pixmap("download", CYAN if not classic() else ICON_DARK, 16,
+        self.icon.setPixmap(icons.pixmap("download", ICON_DARK if classic() else (PINK if flat() else CYAN), 16,
                                          self.devicePixelRatioF()))
         for btn, spec, attr in ((self.btn_a, a, "a"), (self.btn_b, b, "b")):
             btn.setVisible(bool(spec))
@@ -1119,6 +1306,15 @@ class UpdateBar(QWidget):
             draw_inset(p, r)
             if self.progress >= 0:
                 p.fillRect(QRectF(r.left() + 1, r.bottom() - 3, (r.width() - 2) * self.progress, 2), QColor(CYAN))
+            return
+        if flat():
+            p.setPen(QPen(QColor(LINE), 1))
+            p.setBrush(QColor(CARD))
+            p.drawRoundedRect(r, 6, 6)
+            if self.progress >= 0:
+                p.setPen(Qt.NoPen)
+                p.setBrush(QColor(PINK))
+                p.drawRoundedRect(QRectF(r.left() + 8, r.bottom() - 4, (r.width() - 16) * self.progress, 2.5), 1, 1)
             return
         p.setPen(QPen(qcolor(CYAN, 0.7), 1))
         p.setBrush(qcolor(PURPLE, 0.28))
@@ -1264,6 +1460,28 @@ QComboBox { background: #ffffff; color: #000000; border: 2px inset #808080; padd
 QComboBox QAbstractItemView { background: #ffffff; color: #000000; selection-background-color: #0a246a;
   selection-color: #ffffff; }
 QToolTip { background: #ffffe1; color: #000000; border: 1px solid #000000; }
+"""
+    if flat():
+        return f"""
+QDialog#settings {{ background: {BG}; }}
+QDialog#settings QLabel, QDialog#settings QCheckBox {{ color: {TEXT}; }}
+QLabel#settings_head {{ color: {TEXT}; }}
+QLabel#settings_sub {{ color: {PINK}; font-weight: bold; }}
+QLabel#hint {{ color: {MUTED}; }}
+QFrame#sep {{ background: {LINE}; }}
+QCheckBox {{ spacing: 8px; }}
+QCheckBox::indicator {{ width: 14px; height: 14px; border: 1px solid {TRACK}; border-radius: 4px; background: {CARD}; }}
+QCheckBox::indicator:checked {{ background: {PINK}; border-color: {PINK}; }}
+QCheckBox::indicator:disabled {{ border-color: {LINE}; }}
+QPushButton {{ background: {CARD}; color: {TEXT}; border: 1px solid {LINE}; border-radius: 5px; padding: 4px 14px; }}
+QPushButton:hover {{ background: {LAYER}; border-color: {TRACK}; }}
+QPushButton:default {{ background: {PINK}; color: {ON_ACCENT}; border-color: {PINK}; }}
+QPushButton:disabled {{ color: {MUTED}; }}
+QComboBox {{ background: {CARD}; color: {TEXT}; border: 1px solid {LINE}; border-radius: 5px; padding: 3px 8px; }}
+QComboBox:hover {{ border-color: {TRACK}; }}
+QComboBox QAbstractItemView {{ background: {CARD}; color: {TEXT}; border: 1px solid {LINE};
+  selection-background-color: {PINK}; selection-color: {ON_ACCENT}; }}
+QToolTip {{ background: {CARD}; color: {TEXT}; border: 1px solid {LINE}; padding: 4px 6px; }}
 """
     return f"""
 QDialog#settings {{ background: #16052c; }}
@@ -1553,8 +1771,18 @@ class Player(QWidget):
         # search panel
         self.search_panel = QWidget()
         sp = QVBoxLayout(self.search_panel)
-        sp.setContentsMargins(0, 8, 0, 0)
+        sp.setContentsMargins(0, 2, 0, 0)
         sp.setSpacing(6)
+        # a line between the recommendations and the search, with a button
+        # that closes the search (back to the plain player)
+        div = QHBoxLayout()
+        div.setContentsMargins(0, 0, 0, 0)
+        div.setSpacing(6)
+        div.addWidget(Divider(), 1)
+        self.btn_search_close = IconButton("close", 20, 12, T("search_close"))
+        self.btn_search_close.clicked.connect(lambda: self.btn_search.setChecked(False))
+        div.addWidget(self.btn_search_close)
+        sp.addLayout(div)
         self.search_edit = QLineEdit()
         self.search_edit.setObjectName("search")
         self.search_edit.setPlaceholderText(T("search_placeholder"))
@@ -1628,6 +1856,7 @@ class Player(QWidget):
             w.setToolTip(T(key))
         self.btn_mini.setToolTip(T("full") if self.mini else T("compact"))
         self.btn_settings.setToolTip(T("settings"))
+        self.btn_search_close.setToolTip(T("search_close"))
         self.search_edit.setPlaceholderText(T("search_placeholder"))
         self.recs.retranslate()
         if self.recs_key:
@@ -1647,6 +1876,9 @@ class Player(QWidget):
     def paintEvent(self, e):
         if classic():
             self._paint_classic()
+            return
+        if flat():
+            self._paint_flat()
             return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -1756,6 +1988,55 @@ class Player(QWidget):
         p.setBrush(Qt.NoBrush)
         p.drawPath(panel)
 
+    def _paint_flat(self):
+        """The flat skins (Windows 11, Nord): a rounded panel with a soft
+        shadow, a second layer under the player, a thin border."""
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        m = self.PANEL_MARGIN
+        r = QRectF(self.rect()).adjusted(m, m, -m, -m)
+        rad = RADIUS
+        a = 0.6 + 0.4 * self.opacity  # the panel stays readable
+
+        p.setBrush(Qt.NoBrush)
+        for i in range(m, 0, -1):  # soft shadow
+            p.setPen(QPen(QColor(0, 0, 0, int(14 * (1 - i / m) ** 2 * (0.5 + a))), 1))
+            p.drawRoundedRect(r.adjusted(-i, -i + 2, i, i + 2), rad + i, rad + i)
+
+        panel = QPainterPath()
+        panel.addRoundedRect(r, rad, rad)
+        bg = QLinearGradient(0, r.top(), 0, r.bottom())
+        bg.setColorAt(0, qcolor(BG, a))
+        bg.setColorAt(1, qcolor(BG2, a))
+        p.fillPath(panel, bg)
+
+        p.save()
+        p.setClipPath(panel)
+        if SKIN == "nord":
+            # a cold aurora: frost glows behind the header
+            for cx, col, rr in ((r.left() + r.width() * 0.2, PURPLE, 170), (r.right() - 120, PINK, 150)):
+                g = QRadialGradient(QPointF(cx, r.top() - 30), rr)
+                g.setColorAt(0, qcolor(col, 0.22 * a))
+                g.setColorAt(1, qcolor(col, 0))
+                p.fillRect(QRectF(cx - rr, r.top(), rr * 2, rr), g)
+            band = QLinearGradient(r.left(), 0, r.right(), 0)
+            band.setColorAt(0, qcolor(PURPLE, 0.0))
+            band.setColorAt(0.3, qcolor(MAGENTA, 0.9))
+            band.setColorAt(0.7, qcolor(PINK, 0.9))
+            band.setColorAt(1, qcolor(CYAN, 0.0))
+            p.fillRect(QRectF(r.left(), r.top(), r.width(), 2), band)
+        ph = self.player_h or r.height()
+        bottom = r.top() + ph + 4
+        if r.bottom() - bottom > 6:
+            p.fillRect(QRectF(r.left(), bottom, r.width(), r.bottom() - bottom), qcolor(LAYER, a))
+            p.setPen(QPen(QColor(LINE), 1))
+            p.drawLine(QPointF(r.left(), bottom), QPointF(r.right(), bottom))
+        p.restore()
+
+        p.setPen(QPen(QColor(LINE), 1))
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(panel)
+
     def _paint_classic(self):
         """The classic skin: a dark brushed-steel case, a ridged title strip
         behind the header, and black LCD displays for the song and the
@@ -1842,7 +2123,7 @@ class Player(QWidget):
         self.player_h = g.bottom() + 8 - self.PANEL_MARGIN
 
     def _anim(self):
-        if classic():
+        if STYLE != "neon":
             return
         playing = self.cur_state and not self.cur_state.get("paused", True)
         if self.anim_on and playing and self.isVisible() and not self.isMinimized():
@@ -1928,10 +2209,10 @@ class Player(QWidget):
             ft.setWeight(QFont.Bold)
             fmini = QFont(FONT_UI, 9)
             fmini.setWeight(QFont.DemiBold)
-            glow = PINK
+            glow = None if flat() else PINK
         self.title.restyle(ft, TEXT, glow)
         self.mini_title.restyle(fmini, TEXT, glow)
-        self._search_icon.setPixmap(icons.pixmap("search", PINK, 16, self.devicePixelRatioF()))
+        self._search_icon.setPixmap(icons.pixmap("search", MUTED if flat() else PINK, 16, self.devicePixelRatioF()))
         for w in self.findChildren(QWidget):
             w.update()
         self._fit()
