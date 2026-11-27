@@ -168,8 +168,11 @@ class FirefoxHost(QObject):
         # No crash reporter: the Windows build leaves it out.
         env.insert("MOZ_CRASHREPORTER_DISABLE", "1")
         p.setProcessEnvironment(env)
-        p.setProgram(self.firefox)
-        p.setArguments(args)
+        # Firefox goes with the remote even when the remote does not quit
+        # cleanly (see provision.linux_pdeathsig).
+        prefix = provision.linux_pdeathsig()
+        p.setProgram(prefix[0] if prefix else self.firefox)
+        p.setArguments(prefix[1:] + [self.firefox] + args if prefix else args)
         p.setProcessChannelMode(QProcess.ForwardedErrorChannel)
         p.setStandardOutputFile(QProcess.nullDevice())
         p.finished.connect(lambda *_: self._on_finished(p))

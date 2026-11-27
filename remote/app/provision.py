@@ -14,6 +14,7 @@ library is used.
 """
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -31,6 +32,18 @@ _NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW: no console flashing up on Windows
 # a separate process and exits at once. With -wait-for-browser it stays until
 # the browser exits, so the process started is the one to watch.
 WIN_ARGS = ["-wait-for-browser"] if WIN else []
+
+
+def linux_pdeathsig():
+    """On Linux, a prefix that ends a Firefox the remote started when the
+    remote itself goes, even without quitting cleanly (killed by a signal,
+    crashed): otherwise that Firefox keeps running hidden, on its own,
+    holding the profile and playing on, unseen."""
+    if sys.platform.startswith("linux"):
+        setpriv = shutil.which("setpriv")
+        if setpriv:
+            return [setpriv, "--pdeathsig", "TERM", "--"]
+    return []
 
 
 def win_kill_tree(pid, force=True):
@@ -232,7 +245,7 @@ def install_bridge(firefox, profile, code, log=print):
     env.pop("MOZ_MARIONETTE", None)
     flags = _NO_WINDOW if WIN else 0
     proc = subprocess.Popen(
-        [firefox] + WIN_ARGS + ["--headless", "--marionette", "--remote-allow-system-access", "--new-instance",
+        linux_pdeathsig() + [firefox] + WIN_ARGS + ["--headless", "--marionette", "--remote-allow-system-access", "--new-instance",
                                 "--profile", profile, "about:blank"],
         env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         creationflags=flags)

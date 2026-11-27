@@ -11,6 +11,7 @@ the remote opens land in the YukiTube window instead of the default browser.
 import math
 import os
 import re
+import signal
 import sys
 import time
 
@@ -4152,6 +4153,16 @@ def main():
     app.setDesktopFileName("yukitube-remote")
     app.setWindowIcon(logo_icon())
     app.setQuitOnLastWindowClosed(True)
+    # A SIGTERM, SIGHUP or Ctrl+C (pkill, logging out, a closed terminal)
+    # quits like the Quit menu does, so the hidden Firefox is stopped too.
+    # Python runs signal handlers only between bytecodes, never while Qt's
+    # event loop waits, so a timer gives it a moment now and then.
+    for name in ("SIGTERM", "SIGHUP", "SIGINT"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), lambda *_: QApplication.quit())
+    sig_tick = QTimer()
+    sig_tick.timeout.connect(lambda: None)
+    sig_tick.start(500)
     load_fonts()
     f = QFont(FONT_UI, 9)
     app.setFont(f)
