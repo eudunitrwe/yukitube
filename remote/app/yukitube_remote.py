@@ -1205,6 +1205,50 @@ class RecTile(QWidget):
         p.drawText(QPointF(1, self.TH + 2 + fm.ascent()), fm.elidedText(self.d.get("title", ""), Qt.ElideRight, self.TW - 2))
 
 
+class NextLine(QWidget):
+    """"Up next: …" under the channel; a click plays it now."""
+    clicked = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.text = ""
+        self._hover = False
+        self.font_ = QFont(FONT_UI, 8)
+        self.setFixedHeight(QFontMetrics(self.font_).height() + 2)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(T("up_next_tip"))
+
+    def set_text(self, text):
+        if text != self.text:
+            self.text = text
+            self.update()
+
+    def enterEvent(self, e):
+        self._hover = True
+        self.update()
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self.update()
+
+    def mousePressEvent(self, e):
+        e.accept()
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
+            self.clicked.emit()
+
+    def paintEvent(self, e):
+        if not self.text:
+            return
+        p = QPainter(self)
+        p.setFont(self.font_)
+        fm = QFontMetrics(self.font_)
+        p.setPen(QColor((PINK if flat() else CYAN) if self._hover else MUTED))
+        p.drawText(QPointF(0, fm.ascent() + 1), fm.elidedText("▸ " + self.text, Qt.ElideRight, self.width()))
+
+
 class VideoView(QWidget):
     """The video mode's picture: frames of the playing video, sent by the
     bridge. Click: play / pause; double-click: full screen and back."""
@@ -1275,7 +1319,7 @@ class VideoView(QWidget):
 
     def closeEvent(self, e):
         if self.full:
-            self.win.video_full = None
+            self.win._video_full_closed()
         super().closeEvent(e)
 
     def paintEvent(self, e):
@@ -1786,6 +1830,10 @@ class Player(QWidget):
         self.pl_wait = False       # waiting for a YouTube tab to ask
         self.pl_shown_acc = None
         self.video_full = None    # the full-screen video window
+        self.q_req = 0
+        self.q_key = None          # (video, list) the queue shown was loaded for
+        self.q_list = ""
+        self.q_index = -1
         self.tv_on = False
         self.ws = WsServer(self)
         self.ws.frame.connect(self.on_frame)
@@ -1853,6 +1901,8 @@ class Player(QWidget):
         self.btn_tv.toggled.connect(self.toggle_tv)
         self.btn_lists = IconButton("playlist", 26, 16, T("lists_tip"), checkable=True)
         self.btn_lists.toggled.connect(self.toggle_lists)
+        self.btn_queue = IconButton("queue", 26, 16, T("queue_tip"), checkable=True)
+        self.btn_queue.toggled.connect(self.toggle_queue)
         self.btn_search = IconButton("search", 26, 16, T("search_tip"), checkable=True)
         self.btn_search.toggled.connect(self.toggle_search)
         self.btn_mini = IconButton("collapse", 26, 16, T("compact"))
@@ -1863,7 +1913,7 @@ class Player(QWidget):
         self.btn_minw.clicked.connect(self.showMinimized)
         self.btn_close = IconButton("close", 26, 15, T("close"), hover=PINK)
         self.btn_close.clicked.connect(self.close)
-        for b in (self.btn_skin, self.btn_tv, self.btn_lists, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
+        for b in (self.btn_skin, self.btn_tv, self.btn_queue, self.btn_lists, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
             hdr.addWidget(b)
         root.addLayout(hdr)
 
@@ -1891,6 +1941,10 @@ class Player(QWidget):
         self.channel.setFont(QFont(FONT_UI, 9))
         self.channel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         col.addWidget(self.channel)
+        self.next_line = NextLine()
+        self.next_line.clicked.connect(lambda: self.cmd("next"))
+        self.next_line.hide()
+        col.addWidget(self.next_line)
         col.addStretch(1)
         chips = QHBoxLayout()
         chips.setSpacing(5)
@@ -2006,6 +2060,53 @@ class Player(QWidget):
             t.activated.connect(self.play_rec)
             t.menu_requested.connect(self.rec_menu)
         root.addWidget(self.recs)
+
+        # queue panel: what plays next
+        self.queue_panel = QWidget()
+        qp = QVBoxLayout(self.queue_panel)
+        qp.setContentsMargins(0, 2, 0, 0)
+        qp.setSpacing(6)
+        div = QHBoxLayout()
+        div.setContentsMargins(0, 0, 0, 0)
+        div.setSpacing(6)
+        self.queue_head = QLabel(T("queue_title"))
+        self.queue_head.setObjectName("recs_title")
+        f = QFont(FONT_DISPLAY, 7)
+        f.setWeight(QFont.Bold)
+        f.setLetterSpacing(QFont.AbsoluteSpacing, 1.2)
+        self.queue_head.setFont(f)
+        div.addWidget(self.queue_head)
+        div.addWidget(Divider(), 1)
+        self.btn_queue_reload = IconButton("refresh", 20, 12, T("lists_reload"))
+        self.btn_queue_reload.clicked.connect(self.load_queue)
+        div.addWidget(self.btn_queue_reload)
+        self.btn_queue_close = IconButton("close", 20, 12, T("queue_close"))
+        self.btn_queue_close.clicked.connect(lambda: self.btn_queue.setChecked(False))
+        div.addWidget(self.btn_queue_close)
+        qp.addLayout(div)
+        self.queue_status = QLabel("")
+        self.queue_status.setObjectName("hint")
+        self.queue_status.setFont(QFont(FONT_UI, 8))
+        self.queue_status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        qp.addWidget(self.queue_status)
+        self.queue_model = QStandardItemModel(self)
+        self.queue_view = QListView()
+        self.queue_view.setModel(self.queue_model)
+        self.queue_view.setItemDelegate(ResultDelegate(self))
+        self.queue_view.setMouseTracking(True)
+        self.queue_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.queue_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.queue_view.verticalScrollBar().setSingleStep(16)
+        self.queue_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.queue_view.setFixedHeight(ResultDelegate.H * 5 + 4)
+        self.queue_view.setCursor(Qt.PointingHandCursor)
+        self.queue_view.clicked.connect(self.on_queue_clicked)
+        self.queue_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.queue_view.customContextMenuRequested.connect(self.queue_menu)
+        qp.addWidget(self.queue_view)
+        self.queue_panel.hide()
+        self.queue_panel.setFixedWidth(WIDTH - 24)
+        root.addWidget(self.queue_panel)
 
         # playlists panel: the account's own and the ones YouTube suggests
         self.lists_panel = QWidget()
@@ -2156,6 +2257,13 @@ class Player(QWidget):
         self.btn_search_close.setToolTip(T("search_close"))
         self.btn_lists.setToolTip(T("lists_tip"))
         self.btn_tv.setToolTip(T("tv_tip"))
+        self.btn_queue.setToolTip(T("queue_tip"))
+        self.btn_queue_close.setToolTip(T("queue_close"))
+        self.btn_queue_reload.setToolTip(T("lists_reload"))
+        self.queue_head.setText(T("queue_title"))
+        self.next_line.setToolTip(T("up_next_tip"))
+        if self.queue_panel.isVisible():
+            self.load_queue()
         self.video.setToolTip(T("tv_view_tip"))
         self.btn_lists_close.setToolTip(T("lists_close"))
         self.btn_lists_reload.setToolTip(T("lists_reload"))
@@ -2460,6 +2568,9 @@ class Player(QWidget):
         if self.search_panel.isVisible():
             rv = self.results_view.geometry().translated(self.search_panel.pos())
             draw_inset(p, QRectF(rv).adjusted(-3, -3, 3, 3))
+        if self.queue_panel.isVisible():
+            rv = self.queue_view.geometry().translated(self.queue_panel.pos())
+            draw_inset(p, QRectF(rv).adjusted(-3, -3, 3, 3))
         if self.lists_panel.isVisible():
             rv = self.lists_view.geometry().translated(self.lists_panel.pos())
             draw_inset(p, QRectF(rv).adjusted(-3, -3, 3, 3))
@@ -2590,6 +2701,7 @@ class Player(QWidget):
     def toggle_search(self, on):
         if on:
             self.btn_lists.setChecked(False)
+            self.btn_queue.setChecked(False)
         self.search_panel.setVisible(on)
         if on:
             self.search_edit.setFocus()
@@ -2657,6 +2769,8 @@ class Player(QWidget):
         elif k == Qt.Key_Escape:
             if self.search_panel.isVisible():
                 self.btn_search.setChecked(False)
+            elif self.queue_panel.isVisible():
+                self.btn_queue.setChecked(False)
             elif self.lists_panel.isVisible():
                 if self.pl_open:
                     self.lists_back()
@@ -2751,6 +2865,8 @@ class Player(QWidget):
             self.on_agent_results(msg)
         elif t == "recommendations":
             self.on_agent_recs(msg)
+        elif t == "queue":
+            self.on_agent_queue(msg)
         elif t == "frame":
             self.on_frame(key, str(msg.get("data") or "").encode())
         elif t == "playlists":
@@ -3493,7 +3609,122 @@ class Player(QWidget):
             self.video_full.setGeometry(scr.geometry())
         self.video_full.showFullScreen()
         self.video_full.activateWindow()
+        # The player stays on top of other windows: it would cover the
+        # video. It is hidden while the video is full screen.
+        self._pos_before_full = self.pos()
+        self.hide()
         QTimer.singleShot(200, self._ask_video)
+
+    def _video_full_closed(self):
+        self.video_full = None
+        if not self.isVisible():
+            self.showNormal()
+            pos = getattr(self, "_pos_before_full", None)
+            if pos is not None:
+                self.move(pos)
+            self.raise_()
+            self.activateWindow()
+            QTimer.singleShot(300, hyprland.float_window)
+
+    # --------------------------------------------------------------- queue
+    @staticmethod
+    def _queue_key(st):
+        nx = st.get("next") if isinstance(st.get("next"), dict) else {}
+        return st.get("id"), st.get("list") or "", nx.get("id")
+
+    def toggle_queue(self, on):
+        if on:
+            self.btn_search.setChecked(False)
+            self.btn_lists.setChecked(False)
+        self.queue_panel.setVisible(on)
+        self._fit()
+        if on:
+            self.queue_view.setFocus()
+            self.load_queue()
+
+    def load_queue(self):
+        """Asks the YouTube tab for what plays next."""
+        st = self.cur_state
+        self.q_key = self._queue_key(st)
+        self.q_req += 1
+        if not self.cur_key or not st.get("hasVideo"):
+            self.queue_model.clear()
+            self.queue_status.setText(T("queue_empty"))
+            return
+        if not self.queue_model.rowCount():
+            self.queue_status.setText(T("queue_loading"))
+        req = self.q_req
+        self.cmd("queue", extra={"reqId": req})
+        QTimer.singleShot(30000, lambda: self._queue_timeout(req))
+
+    def _queue_timeout(self, req):
+        if req == self.q_req and not self.queue_model.rowCount() and self.queue_panel.isVisible():
+            self.queue_status.setText(T("lists_failed", err="timeout"))
+
+    def on_agent_queue(self, msg):
+        if msg.get("reqId") != self.q_req:
+            return
+        items = [dict(it) for it in msg.get("items") or [] if isinstance(it, dict) and it.get("id")]
+        if not items:
+            self.queue_model.clear()
+            self.queue_status.setText(T("lists_failed", err=msg["error"]) if msg.get("error") else T("queue_empty"))
+            return
+        self.q_list = msg.get("list") or ""
+        idx = msg.get("index", -1)
+        self.q_index = idx if isinstance(idx, int) else -1
+        for i, it in enumerate(items):
+            it["index"] = i
+            tag = ""
+            if i == self.q_index:
+                tag = T("queue_now")
+            elif it.get("upNext") or (self.q_list and self.q_index >= 0 and i == self.q_index + 1):
+                tag = T("queue_next")
+            if tag:
+                it["views"] = "▸ " + tag + ("  ·  " + it["views"] if it.get("views") else "")
+        self.queue_model.clear()
+        for it in items:
+            si = QStandardItem()
+            si.setData(it, ROLE_DATA)
+            si.setToolTip(it.get("title", "") + ("\n" + it["channel"] if it.get("channel") else ""))
+            self.queue_model.appendRow(si)
+        if self.q_list:
+            self.queue_status.setText(T("queue_list", i=max(1, self.q_index + 1), n=len(items)))
+        else:
+            self.queue_status.setText(T("queue_single") if msg.get("auto", True) else T("queue_no_autoplay"))
+        if self.q_index > 0:
+            self.queue_view.scrollTo(self.queue_model.index(self.q_index, 0), QAbstractItemView.PositionAtTop)
+        else:
+            self.queue_view.scrollToTop()
+
+    def play_queue_item(self, d):
+        if not d or d.get("id") == self.cur_state.get("id"):
+            return
+        if self.q_list:
+            self.cmd("openList", {"list": self.q_list, "id": d["id"], "index": d.get("index", 0)})
+        else:
+            self.cmd("open", {"id": d["id"]})
+        self.title.set_text(d.get("title", ""))
+        self.mini_title.set_text(d.get("title", ""))
+        self.channel.setText(d.get("channel", ""))
+
+    def on_queue_clicked(self, idx):
+        d = idx.data(ROLE_DATA)
+        if QGuiApplication.keyboardModifiers() & Qt.ControlModifier:
+            self.open_in_browser(d)
+        else:
+            self.play_queue_item(d)
+
+    def queue_menu(self, pos):
+        idx = self.queue_view.indexAt(pos)
+        if not idx.isValid():
+            return
+        d = idx.data(ROLE_DATA)
+        m = QMenu(self)
+        m.addAction(T("play_here"), lambda: self.play_queue_item(d))
+        m.addAction(T("open_new_tab"), lambda: self.open_in_browser(d))
+        m.addAction(T("copy_link"), lambda: QGuiApplication.clipboard().setText(
+            f"https://www.youtube.com/watch?v={d['id']}"))
+        m.exec(self.queue_view.viewport().mapToGlobal(pos))
 
     # ----------------------------------------------------------- playlists
     def cur_list(self):
@@ -3504,6 +3735,7 @@ class Player(QWidget):
     def toggle_lists(self, on):
         if on:
             self.btn_search.setChecked(False)
+            self.btn_queue.setChecked(False)
         self.lists_panel.setVisible(on)
         self._fit()
         if on:
@@ -3814,6 +4046,18 @@ class Player(QWidget):
                 self.request_thumb(vid, lambda pm, v=vid: self.thumb.set_pixmap(pm) if self.cur_state.get("id") == v else None)
         else:
             self.thumb.set_pixmap(None)
+
+        nx = st.get("next") if connected and has_video else None
+        nx_text = ""
+        if isinstance(nx, dict) and nx.get("title"):
+            nx_text = nx["title"] + (f" — {nx['channel']}" if nx.get("channel") else "")
+        self.next_line.set_text(T("up_next", t=nx_text) if nx_text else "")
+        self.next_line.setVisible(bool(nx_text))
+        self.btn_next.setToolTip(T("next_tip") + ("\n" + T("up_next", t=nx_text) if nx_text else ""))
+        if self.queue_panel.isVisible():
+            self.queue_view.viewport().update()
+            if self._queue_key(st) != self.q_key and has_video:
+                self.load_queue()
 
         for b in (self.btn_play, self.btn_prev, self.btn_next, self.btn_rew, self.btn_fwd, self.btn_loop,
                   self.btn_stop, self.btn_vol, self.btn_like, self.btn_speed):

@@ -83,6 +83,87 @@ function createYukiAgent(send, sendFrame) {
     return { loggedIn, avatar: loggedIn && avatar && /^https:/.test(avatar.src || "") ? avatar.src : "" };
   }
 
+  // ------------------------------------------------------------- up next
+  // A song of the playlist beside the player (a playlist or a Mix).
+  function panelItem(e) {
+    const a = e.querySelector("a#wc-endpoint") || e.querySelector("a[href*='watch']");
+    let id = "";
+    try { id = new URL(a.href, location.href).searchParams.get("v") || ""; } catch (err) {}
+    const t = (sel) => ((e.querySelector(sel) || {}).textContent || "").trim();
+    return { id, title: t("#video-title"), channel: t("#byline"),
+      duration: t("badge-shape") || t("#time-status #text"), views: "" };
+  }
+
+  function panelItems() {
+    const seen = new Set(), out = [];
+    let index = -1;
+    for (const e of document.querySelectorAll("ytd-playlist-panel-renderer#playlist ytd-playlist-panel-video-renderer")) {
+      const it = panelItem(e);
+      if (!it.id || seen.has(it.id)) continue;
+      seen.add(it.id);
+      if (e.hasAttribute("selected") && index < 0) index = out.length;
+      out.push(it);
+    }
+    return { items: out, index };
+  }
+
+  const listId = () => { try { return new URL(location.href).searchParams.get("list") || ""; } catch (e) { return ""; } };
+  const autoplayOn = () => {
+    const b = $(".ytp-autonav-toggle-button");
+    return !b || b.getAttribute("aria-checked") !== "false";
+  };
+
+  // What plays after this one: the next song of the playlist, or the video
+  // YouTube's autoplay picked (YouTube's own Next button knows both).
+  function nextInfo() {
+    if (isMusic) return null;
+    const b = $(".ytp-next-button");
+    const href = b && b.getAttribute("href");
+    if (!href) return null;
+    const list = listId();
+    if (!list && !autoplayOn()) return null;
+    let id = "";
+    try { id = new URL(href, location.href).searchParams.get("v") || ""; } catch (e) {}
+    if (!id || id === videoId()) return null;
+    let channel = "";
+    if (list) {
+      const p = panelItems();
+      const it = p.items.find((x) => x.id === id);
+      if (it) channel = it.channel;
+    }
+    return { id, title: b.getAttribute("data-tooltip-text") || "", channel,
+      duration: b.getAttribute("data-duration") || "", views: "" };
+  }
+
+  // The queue: the playlist's songs (with the one playing now), or this
+  // video, the autoplay one and YouTube's suggestions after it.
+  async function queue(reqId) {
+    let items = [], index = -1, error = "";
+    const list = listId();
+    try {
+      if (isMusic) throw new Error("queue only from www.youtube.com");
+      const cur = videoId();
+      if (list) {
+        const p = panelItems();
+        items = p.items; index = p.index;
+        if (!items.length) {
+          items = await playlistVideos(list, 200, cur);
+          index = items.findIndex((x) => x.id === cur);
+        }
+      } else if (cur) {
+        const m = meta();
+        items = [{ id: cur, title: m.title, channel: m.author, duration: "", views: "" }];
+        index = 0;
+        const nx = nextInfo();
+        if (nx) items.push(Object.assign(nx, { upNext: true }));
+        let rel = [];
+        try { rel = await pageVideos("/watch?v=" + encodeURIComponent(cur), 25); } catch (e) {}
+        for (const v of rel) if (!items.some((x) => x.id === v.id)) items.push(v);
+      }
+    } catch (e) { error = String(e && e.message || e); }
+    send({ type: "queue", reqId, items: items.slice(0, 200), index, list, auto: autoplayOn(), error });
+  }
+
   function state() {
     const v = video();
     const m = meta();
@@ -116,6 +197,8 @@ function createYukiAgent(send, sendFrame) {
       hasPrev: visible(prevBtn),
       lastPlayed,
       account: account(),
+      next: nextInfo(),
+      list: listId(),
       host: location.hostname,
       url: location.href,
       ua: navigator.userAgent,
@@ -127,7 +210,7 @@ function createYukiAgent(send, sendFrame) {
 
   function push(force) {
     const s = state();
-    const sig = [s.id, s.title, s.paused, Math.floor(s.time), s.volume, s.muted, s.rate, s.loop, s.ad, s.liked, s.duration].join("|");
+    const sig = [s.id, s.next && s.next.id, s.list, s.title, s.paused, Math.floor(s.time), s.volume, s.muted, s.rate, s.loop, s.ad, s.liked, s.duration].join("|");
     const now = Date.now();
     if (force || sig !== lastSig || now - lastSent > 2500) {
       lastSig = sig;
@@ -680,6 +763,7 @@ function createYukiAgent(send, sendFrame) {
       case "playlistItems": if (val && val.list) playlistItems(msg.reqId, val); return;
       case "openList": if (val && val.list) openList(val); break;
       case "video": videoMode(val); return;
+      case "queue": queue(msg.reqId); return;
       case "focus": window.focus(); break;
     }
     setTimeout(() => push(true), 120);
