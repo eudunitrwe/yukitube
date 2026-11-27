@@ -3,6 +3,7 @@
   // say which version they are.
   const BRIDGE = "1.6.0";
   const URL_HTTP = "http://127.0.0.1:8975/yt/up";
+  const URL_FRAME = "http://127.0.0.1:8975/yt/frame";
   const URL_WS = "ws://127.0.0.1:8975";
   // The same key across reloads of this tab (sessionStorage is per tab), so
   // the remote keeps controlling it instead of a stale copy of the old page.
@@ -33,6 +34,24 @@
       }
       out.push(msg);
       if (out.length > 30) out = out.slice(-30);
+    }, (jpeg, done) => {
+      // Video frames go straight away, one at a time, not with the queue.
+      if (ws && ws.readyState === 1) {
+        if (ws.bufferedAmount < 1 << 20) ws.send(JSON.stringify({ type: "frame", tab: key, data: jpeg }));
+        setTimeout(() => done(true), 0);
+        return;
+      }
+      if (!gmx) { done(false); return; }
+      gmx({
+        method: "POST",
+        url: URL_FRAME,
+        headers: { "Content-Type": "text/plain", "X-YukiTube": "1", "X-Tab": key },
+        data: jpeg,
+        timeout: 4000,
+        onload: (r) => { let j = null; try { j = JSON.parse(r.responseText); } catch (e) {} done(!j || j.more !== false); },
+        onerror: () => done(true),
+        ontimeout: () => done(true),
+      });
     });
 
     if (gmx) {

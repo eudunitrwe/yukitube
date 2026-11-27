@@ -17,8 +17,8 @@ import time
 from PySide6.QtCore import (QByteArray, QEasingCurve, QPoint, QPointF, QProcess, QRectF, QSettings, QSize, Qt,
                             QTimer, QUrl, Signal)
 from PySide6.QtGui import (QAction, QBrush, QColor, QDesktopServices, QFont, QFontDatabase,
-                           QFontMetrics, QGuiApplication, QKeySequence, QLinearGradient, QPainter,
-                           QPainterPath, QPen, QPixmap, QRadialGradient, QStandardItem,
+                           QCursor, QFontMetrics, QGuiApplication, QKeySequence, QLinearGradient, QPainter,
+                           QImage, QPainterPath, QPen, QPixmap, QRadialGradient, QStandardItem,
                            QStandardItemModel)
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog,
@@ -836,6 +836,12 @@ class ResultDelegate(QStyledItemDelegate):
         return QSize(opt.rect.width(), self.H)
 
     @staticmethod
+    def songs_rect(rect):
+        """Where a playlist row's ☰ (show the songs) button is."""
+        r = QRectF(rect).adjusted(4, 2, -4, -2)
+        return QRectF(r.right() - 34, r.center().y() - 14, 28, 28)
+
+    @staticmethod
     def _two_lines(text, fm, width):
         words = text.split()
         lines, cur = [], ""
@@ -914,9 +920,21 @@ class ResultDelegate(QStyledItemDelegate):
             p.setPen(QPen(qcolor(PINK if playing else CYAN, 0.8 if playing else 0.35), 1.2))
         p.setBrush(Qt.NoBrush)
         p.drawPath(path)
+        # a playlist's ☰ button: its songs
+        songs_btn = bool(d.get("list"))
+        if songs_btn:
+            br = self.songs_rect(opt.rect)
+            under = hover and br.contains(QPointF(self.win.lists_view.viewport().mapFromGlobal(QCursor.pos())))
+            p.setPen(Qt.NoPen)
+            if under:
+                p.setBrush(qcolor(PINK if flat() else CYAN, 0.25))
+                p.drawRoundedRect(br, 4 if flat() or classic() else 14, 4 if flat() or classic() else 14)
+            col = (PINK if flat() else CYAN) if under else (MUTED if flat() else TEXT)
+            pm = icons.pixmap("playlist", col, 18, p.device().devicePixelRatioF())
+            p.drawPixmap(QPointF(br.center().x() - 9, br.center().y() - 9), pm)
         # text
         x = tr.right() + 10
-        w = r.right() - x - 6
+        w = r.right() - x - 6 - (36 if songs_btn else 0)
         p.setFont(self.f_title)
         fm = QFontMetrics(self.f_title)
         y = r.top() + 4 + fm.ascent()
@@ -1185,6 +1203,86 @@ class RecTile(QWidget):
         fm = QFontMetrics(self.f_title)
         p.setPen(QColor((PINK if flat() else CYAN) if self._hover else TEXT))
         p.drawText(QPointF(1, self.TH + 2 + fm.ascent()), fm.elidedText(self.d.get("title", ""), Qt.ElideRight, self.TW - 2))
+
+
+class VideoView(QWidget):
+    """The video mode's picture: frames of the playing video, sent by the
+    bridge. Click: play / pause; double-click: full screen and back."""
+
+    def __init__(self, win, full=False, parent=None):
+        super().__init__(parent)
+        self.win = win
+        self.full = full
+        self.img = None
+        self._click = QTimer(self)
+        self._click.setSingleShot(True)
+        self._click.timeout.connect(win.toggle_play)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(T("tv_view_tip"))
+        if full:
+            self.setWindowTitle(APP_NAME)
+            self.setAttribute(Qt.WA_DeleteOnClose)
+            self.setStyleSheet("background: #000000;")
+
+    def set_frame(self, img):
+        self.img = img
+        self.update()
+
+    def mousePressEvent(self, e):
+        e.accept()  # not passed on: it would start moving the window
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self._click.start(QApplication.doubleClickInterval())
+
+    def mouseDoubleClickEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self._click.stop()
+            self.win.toggle_video_full()
+
+    def keyPressEvent(self, e):
+        if self.full and e.key() in (Qt.Key_Escape, Qt.Key_F):
+            self.close()
+        elif self.full:
+            self.win.keyPressEvent(e)
+        else:
+            super().keyPressEvent(e)
+
+    def closeEvent(self, e):
+        if self.full:
+            self.win.video_full = None
+        super().closeEvent(e)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        r = QRectF(self.rect())
+        rad = 0 if self.full or classic() else (6 if flat() else 8)
+        path = QPainterPath()
+        path.addRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), rad, rad)
+        p.fillPath(path, QColor(0, 0, 0))
+        img = self.img
+        if img is not None and not img.isNull():
+            sc = min(r.width() / img.width(), r.height() / img.height())
+            w, h = img.width() * sc, img.height() * sc
+            p.save()
+            p.setClipPath(path)
+            p.drawImage(QRectF(r.center().x() - w / 2, r.center().y() - h / 2, w, h), img)
+            p.restore()
+        else:
+            p.setPen(QColor("#9a9ab0"))
+            p.setFont(QFont(FONT_UI, 10))
+            p.drawText(r, Qt.AlignCenter, T("tv_waiting") if self.win.cur_key else T("tv_no_tab"))
+        if not self.full:
+            p.setBrush(Qt.NoBrush)
+            if classic():
+                p.setPen(QPen(QColor("#3a3a4a"), 1))
+            elif flat():
+                p.setPen(QPen(QColor(LINE), 1))
+            else:
+                p.setPen(QPen(qcolor(PINK, 0.5), 1.2))
+            p.drawPath(path)
 
 
 class Divider(QWidget):
@@ -1653,7 +1751,10 @@ class Player(QWidget):
         self.pl_open = None        # the playlist whose songs are shown
         self.pl_wait = False       # waiting for a YouTube tab to ask
         self.pl_shown_acc = None
+        self.video_full = None    # the full-screen video window
+        self.tv_on = False
         self.ws = WsServer(self)
+        self.ws.frame.connect(self.on_frame)
         self.ws.userscript = userscript_bytes()
         self.ws.ping = {"app": "yukitube-remote", "version": VERSION, "tabs": 0}
         self.ws.message.connect(self.on_message)
@@ -1675,6 +1776,10 @@ class Player(QWidget):
         self.ping_timer = QTimer(self)
         self.ping_timer.timeout.connect(lambda: self.ws.broadcast({"type": "ping"}))
         self.ping_timer.start(15000)
+        self.tv_timer = QTimer(self)
+        self.tv_timer.timeout.connect(self._ask_video)
+        if self.settings.value("tv", "false") in (True, "true"):
+            self.btn_tv.setChecked(True)
         self.vol_timer = QTimer(self)
         self.vol_timer.setSingleShot(True)
         self.vol_timer.timeout.connect(self._send_volume)
@@ -1710,6 +1815,8 @@ class Player(QWidget):
         hdr.addWidget(self.btn_settings)
         self.btn_skin = IconButton("palette", 26, 16, T("skin_tip"))
         self.btn_skin.clicked.connect(lambda: self.skin_menu(self.btn_skin.mapToGlobal(QPoint(0, 26))))
+        self.btn_tv = IconButton("tv", 26, 16, T("tv_tip"), checkable=True)
+        self.btn_tv.toggled.connect(self.toggle_tv)
         self.btn_lists = IconButton("playlist", 26, 16, T("lists_tip"), checkable=True)
         self.btn_lists.toggled.connect(self.toggle_lists)
         self.btn_search = IconButton("search", 26, 16, T("search_tip"), checkable=True)
@@ -1722,9 +1829,16 @@ class Player(QWidget):
         self.btn_minw.clicked.connect(self.showMinimized)
         self.btn_close = IconButton("close", 26, 15, T("close"), hover=PINK)
         self.btn_close.clicked.connect(self.close)
-        for b in (self.btn_skin, self.btn_lists, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
+        for b in (self.btn_skin, self.btn_tv, self.btn_lists, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
             hdr.addWidget(b)
         root.addLayout(hdr)
+
+        # video mode: the video, under the header; the window grows to fit it
+        self.video = VideoView(self)
+        vw = WIDTH - 24
+        self.video.setFixedSize(vw, round(vw * 9 / 16))
+        self.video.hide()
+        root.addWidget(self.video)
 
         # info
         info = QHBoxLayout()
@@ -2007,6 +2121,8 @@ class Player(QWidget):
         self.btn_settings.setToolTip(T("settings"))
         self.btn_search_close.setToolTip(T("search_close"))
         self.btn_lists.setToolTip(T("lists_tip"))
+        self.btn_tv.setToolTip(T("tv_tip"))
+        self.video.setToolTip(T("tv_view_tip"))
         self.btn_lists_close.setToolTip(T("lists_close"))
         self.btn_lists_reload.setToolTip(T("lists_reload"))
         self.chip_mine.setText(T("lists_mine"))
@@ -2537,6 +2653,17 @@ class Player(QWidget):
             super().keyPressEvent(e)
 
     def eventFilter(self, obj, ev):
+        if (obj is getattr(self, "_lists_vp", None) and ev.type() == ev.Type.MouseButtonRelease
+                and ev.button() == Qt.LeftButton and not self.pl_open):
+            pos = ev.position().toPoint()
+            idx = self.lists_view.indexAt(pos)
+            d = idx.data(ROLE_DATA) if idx.isValid() else None
+            if d and d.get("list") and ResultDelegate.songs_rect(self.lists_view.visualRect(idx)).contains(
+                    QPointF(pos)):
+                self.show_songs(d)
+                return True
+        if obj is getattr(self, "_lists_vp", None) and ev.type() == ev.Type.MouseMove:
+            self._lists_vp.update()
         if obj is getattr(self, "_lists_vp", None) and ev.type() == ev.Type.MouseButtonRelease:
             if ev.button() == Qt.MiddleButton:
                 idx = self.lists_view.indexAt(ev.position().toPoint())
@@ -2590,6 +2717,8 @@ class Player(QWidget):
             self.on_agent_results(msg)
         elif t == "recommendations":
             self.on_agent_recs(msg)
+        elif t == "frame":
+            self.on_frame(key, str(msg.get("data") or "").encode())
         elif t == "playlists":
             self.on_agent_lists(msg)
         elif t == "playlist_items":
@@ -3283,6 +3412,54 @@ class Player(QWidget):
         m.addAction(T("copy_link"), lambda: QGuiApplication.clipboard().setText(
             f"https://www.youtube.com/watch?v={d['id']}"))
         m.exec(pos)
+
+    # ---------------------------------------------------------- video mode
+    def toggle_tv(self, on):
+        """The video mode: the window grows and shows the video playing in
+        the hidden YouTube (frames sent by the bridge)."""
+        self.tv_on = bool(on)
+        self.settings.setValue("tv", self.tv_on)
+        self.ws.want_frames = self.tv_on
+        self.video.setVisible(self.tv_on)
+        self._fit()
+        if self.tv_on:
+            self.video.set_frame(None)
+            self._ask_video()
+            self.tv_timer.start(2500)
+        else:
+            self.tv_timer.stop()
+            self.cmd("video", {"on": False})
+            if self.video_full:
+                self.video_full.close()
+
+    def _ask_video(self):
+        w = self.video.width() * self.devicePixelRatioF()
+        if self.video_full:
+            w = max(w, self.video_full.width() * self.video_full.devicePixelRatioF())
+        self.cmd("video", {"on": True, "w": int(min(1920, w)), "fps": 25})
+
+    def on_frame(self, tab, data):
+        if not self.tv_on or tab != self.cur_key:
+            return
+        img = QImage.fromData(QByteArray.fromBase64(QByteArray(data)), "JPG")
+        if img.isNull():
+            return
+        self.video.set_frame(img)
+        if self.video_full:
+            self.video_full.set_frame(img)
+
+    def toggle_video_full(self):
+        if self.video_full:
+            self.video_full.close()
+            return
+        self.video_full = VideoView(self, full=True)
+        self.video_full.set_frame(self.video.img)
+        scr = self.screen() or QGuiApplication.primaryScreen()
+        if scr is not None:
+            self.video_full.setGeometry(scr.geometry())
+        self.video_full.showFullScreen()
+        self.video_full.activateWindow()
+        QTimer.singleShot(200, self._ask_video)
 
     # ----------------------------------------------------------- playlists
     def cur_list(self):

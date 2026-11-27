@@ -1,7 +1,7 @@
 /* YukiTube bridge agent — runs inside the YouTube page.
  * Reads the player state and executes commands sent by the YukiTube remote.
  * Shared by the browser extension and the userscript. */
-function createYukiAgent(send) {
+function createYukiAgent(send, sendFrame) {
   "use strict";
   const isMusic = location.hostname === "music.youtube.com";
   // Inside a userscript manager's sandbox (Violentmonkey in Firefox), the
@@ -595,6 +595,46 @@ function createYukiAgent(send) {
     if (id) navigate(id, 0, list, Number(val.index) || 0);
   }
 
+  // ---------------------------------------------------------------- video
+  // The remote's video mode: frames of the playing video, drawn into a
+  // canvas and sent as JPEG, while the remote keeps asking (every few
+  // seconds; it stops on its own when the remote stops asking).
+  let videoUntil = 0, videoW = 854, videoTimer = 0, frameBusy = false, lastFrameT = -1, lastFrameAt = 0;
+  let canvas = null;
+  function frameTick() {
+    if (!sendFrame || Date.now() > videoUntil) { clearInterval(videoTimer); videoTimer = 0; return; }
+    if (frameBusy) return;
+    const v = video();
+    if (!v || v.readyState < 2 || !v.videoWidth) return;
+    const now = Date.now();
+    // A still picture (paused) is sent again once a second only.
+    if (v.currentTime === lastFrameT && now - lastFrameAt < 1000) return;
+    const w = Math.min(videoW, v.videoWidth), h = Math.round(w * v.videoHeight / v.videoWidth);
+    if (!canvas) canvas = document.createElement("canvas");
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    let data = "";
+    try {
+      canvas.getContext("2d").drawImage(v, 0, 0, w, h);
+      data = canvas.toDataURL("image/jpeg", 0.72);
+    } catch (e) { return; }
+    lastFrameT = v.currentTime;
+    lastFrameAt = now;
+    frameBusy = true;
+    sendFrame(data.slice(data.indexOf(",") + 1), (more) => {
+      frameBusy = false;
+      if (more === false) videoUntil = 0;
+    });
+  }
+
+  function videoMode(val) {
+    if (!sendFrame) return;
+    if (!val || !val.on) { videoUntil = 0; return; }
+    videoW = Math.max(160, Math.min(1920, Number(val.w) || 854));
+    videoUntil = Date.now() + 6000;
+    lastFrameT = -1;
+    if (!videoTimer) videoTimer = setInterval(frameTick, Math.round(1000 / Math.max(5, Math.min(30, Number(val.fps) || 25))));
+  }
+
   function handle(msg) {
     if (!msg || msg.type !== "cmd") return;
     const v = video();
@@ -639,6 +679,7 @@ function createYukiAgent(send) {
       case "playlists": playlists(msg.reqId, val); return;
       case "playlistItems": if (val && val.list) playlistItems(msg.reqId, val); return;
       case "openList": if (val && val.list) openList(val); break;
+      case "video": videoMode(val); return;
       case "focus": window.focus(); break;
     }
     setTimeout(() => push(true), 120);

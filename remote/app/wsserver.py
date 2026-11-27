@@ -43,6 +43,7 @@ class _Conn:
 class WsServer(QObject):
     message = Signal(int, dict)       # connection id, decoded JSON
     open_request = Signal(str)        # a second YukiTube launch: link, search or ""
+    frame = Signal(str, bytes)        # tab key, a video frame (base64 JPEG) for the video mode
     connected = Signal(int)
     disconnected = Signal(int)
 
@@ -55,6 +56,7 @@ class WsServer(QObject):
         self._http_q = {}  # tab key -> queued commands for HTTP agents
         self.userscript = b""  # served at /yukitube.user.js
         self.ping = {"app": "yukitube-remote"}
+        self.want_frames = False  # the video mode is on: bridges keep sending frames
 
     def listen(self, port):
         return self._srv.listen(QHostAddress(QHostAddress.LocalHost), port)
@@ -127,7 +129,7 @@ class WsServer(QObject):
             n = int(hdr.get("content-length", "0"))
         except ValueError:
             n = -1
-        if n < 0 or n > 4 * 1024 * 1024:
+        if n < 0 or n > 8 * 1024 * 1024:
             return self._http_reply(c, 400, {})
         if len(c.buf) < end + 4 + n:
             return  # wait for the rest of the body
@@ -135,6 +137,11 @@ class WsServer(QObject):
         del c.buf[: end + 4 + n]
         if lines[0].startswith("OPTIONS") or hdr.get("x-yukitube") != "1":
             return self._http_reply(c, 403, {})
+        # POST /yt/frame: a video frame (base64 JPEG) from the tab in X-Tab.
+        if lines[0].startswith("POST /yt/frame "):
+            if self.want_frames and body:
+                self.frame.emit(hdr.get("x-tab", ""), body)
+            return self._http_reply(c, 200, {"more": self.want_frames})
         # POST /yt/open {arg}: YukiTube launched again while the remote runs.
         if lines[0].startswith("POST /yt/open "):
             try:

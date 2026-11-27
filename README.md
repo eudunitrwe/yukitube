@@ -16,7 +16,8 @@ Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude 
 
 - Plays YouTube from a compact player window — no ads, no "Video paused. Continue watching?".
 - **Search** (🔍 or `Ctrl+F`) and play with one click.
-- **Playlists** (☰♪): your own (Liked videos, Watch later and the rest) and the ones YouTube suggests for you.
+- **Playlists** (☰♪): your own (Liked videos, Watch later and the rest) and the ones YouTube suggests for you; ☰ on a playlist shows its songs.
+- **Video mode** (📺): the window grows and shows the video; double-click it for full screen.
 - **Music for you:** recommendations based on what you listen to.
 - Play/pause, previous/next, seek, volume, speed, loop, like.
 - Sign in with your **Google account** (👤) for your playlists and personal recommendations.
@@ -63,7 +64,8 @@ The first start takes a few seconds longer while YukiTube sets itself up.
 
 - Redă YouTube într-o fereastră mică de player — fără reclame, fără „Continui vizionarea?”.
 - **Căutare** (🔍 sau `Ctrl+F`) și redare dintr-un click.
-- **Playlisturi** (☰♪): ale tale (Videoclipuri apreciate, De vizionat mai târziu și celelalte) și cele propuse de YouTube pentru tine.
+- **Playlisturi** (☰♪): ale tale (Videoclipuri apreciate, De vizionat mai târziu și celelalte) și cele propuse de YouTube pentru tine; ☰ de pe un playlist îi arată melodiile.
+- **Mod video** (📺): fereastra se mărește și arată videoclipul; dublu-click pe el pentru ecran complet.
 - **Muzică pentru tine:** recomandări după ce asculți.
 - Pauză/redare, anterior/următor, derulare, volum, viteză, repetare, like.
 - Conectare cu **contul Google** (👤) pentru playlisturile tale și recomandări personale.
