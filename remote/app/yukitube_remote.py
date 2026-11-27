@@ -10,6 +10,7 @@ the remote opens land in the YukiTube window instead of the default browser.
 """
 import math
 import os
+import re
 import sys
 import time
 
@@ -861,7 +862,10 @@ class ResultDelegate(QStyledItemDelegate):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         hover = bool(opt.state & QStyle.State_MouseOver)
         sel = bool(opt.state & QStyle.State_Selected)
-        playing = d.get("id") and d.get("id") == self.win.cur_state.get("id")
+        if d.get("list"):
+            playing = d["list"] == self.win.cur_list()
+        else:
+            playing = d.get("id") and d.get("id") == self.win.cur_state.get("id")
         if (hover or sel) and flat():
             p.setPen(Qt.NoPen)
             p.setBrush(qcolor(TEXT, 0.09 if sel else 0.06))
@@ -890,7 +894,8 @@ class ResultDelegate(QStyledItemDelegate):
             p.drawPixmap(QRectF(tr.center().x() - sw / 2, tr.center().y() - sh / 2, sw, sh), pm, QRectF(pm.rect()))
         else:
             p.fillRect(tr, QColor(28, 28, 38) if classic() else (QColor(SHADE) if flat() else QColor(30, 6, 60, 200)))
-            self.win.request_thumb(d.get("id", ""), lambda *_: self.win.results_view.viewport().update())
+            view = opt.widget
+            self.win.request_thumb(d.get("id", ""), lambda *_, v=view: v.viewport().update() if v else None)
         dur = d.get("duration", "")
         if dur:
             p.setFont(self.f_dur)
@@ -1436,6 +1441,11 @@ class SettingsDialog(QDialog):
         self.check.setCursor(Qt.PointingHandCursor)
         self.check.clicked.connect(self._check)
         row.addWidget(self.check)
+        # Update now: downloads the new version and restarts into it
+        self.update_now = QPushButton(T("settings_update_now"))
+        self.update_now.setCursor(Qt.PointingHandCursor)
+        self.update_now.clicked.connect(self._update_now)
+        row.addWidget(self.update_now)
         lay.addLayout(row)
         self.upd_status = QLabel("")
         self.upd_status.setObjectName("hint")
@@ -1458,6 +1468,8 @@ class SettingsDialog(QDialog):
         # A fixed size: a tiling window manager cannot stretch it.
         self.setFixedSize(self.sizeHint())
         win.update_status.connect(self._on_update_status)
+        win.update_changed.connect(self._sync_update)
+        self._sync_update(initial=True)
 
     def _lang(self, i):
         self.win.set_language(self.lang.itemData(i))
@@ -1482,6 +1494,34 @@ class SettingsDialog(QDialog):
     def _on_update_status(self, text):
         self.check.setEnabled(True)
         self.upd_status.setText(text)
+        self._sync_update()
+
+    def _sync_update(self, initial=False):
+        """The Update now button: shown while a newer version is known (or
+        downloaded); busy while it downloads."""
+        up = self.win.updater
+        pending = up.pending()
+        latest = up.latest.get("version")
+        if up.downloading:
+            self.update_now.setText(T("settings_updating"))
+            self.update_now.setEnabled(False)
+            self.update_now.show()
+            self.upd_status.setText(T("upd_downloading", v=latest or "", pct=self.win._upd_pct))
+        elif pending or latest:
+            self.update_now.setText(T("settings_update_now") if pending or up.can_install() and up.latest.get("url")
+                                    else T("upd_open_page"))
+            self.update_now.setEnabled(True)
+            self.update_now.show()
+            if initial or self.win._upd_state == "failed":
+                self.upd_status.setText(
+                    T("upd_dl_failed", err=self.win._upd_err) if self.win._upd_state == "failed"
+                    else T("upd_ready", v=pending["version"]) if pending else T("upd_available", v=latest))
+        else:
+            self.update_now.hide()
+
+    def _update_now(self):
+        self.update_now.setEnabled(False)
+        self.win.update_now()
 
 
 def settings_stylesheet():
@@ -1550,6 +1590,7 @@ QToolTip {{ background: #1a0533; color: {TEXT}; border: 1px solid {PINK}; paddin
 class Player(QWidget):
     PANEL_MARGIN = 10
     update_status = Signal(str)   # for the settings window: the last check's outcome
+    update_changed = Signal()     # an update was found, is downloading, downloaded or failed
 
     def __init__(self):
         super().__init__(None, Qt.Window | Qt.FramelessWindowHint)
@@ -1588,7 +1629,8 @@ class Player(QWidget):
         self.updater.checked.connect(self._on_update_checked)
         self.updater.check_failed.connect(self._on_update_check_failed)
         self.updater.progress.connect(self._on_update_progress)
-        self.updater.downloaded.connect(lambda v: self._show_update("ready"))
+        self.updater.downloaded.connect(self._on_update_downloaded)
+        self._install_when_downloaded = False
         self.updater.download_failed.connect(self._on_update_download_failed)
         self._upd_state = None
         self._upd_err = ""
@@ -1604,6 +1646,13 @@ class Player(QWidget):
         self._recs_done = True
         self._heard_vid = None
         self._heard_done = False
+        # playlists
+        self.pl_kind = str(self.settings.value("lists/kind", "") or "")  # "mine" / "suggested"; "" = by account
+        self.pl_req = 0
+        self.pl_cache = {}         # kind -> {"items": [...], "acc": signed in when loaded}
+        self.pl_open = None        # the playlist whose songs are shown
+        self.pl_wait = False       # waiting for a YouTube tab to ask
+        self.pl_shown_acc = None
         self.ws = WsServer(self)
         self.ws.userscript = userscript_bytes()
         self.ws.ping = {"app": "yukitube-remote", "version": VERSION, "tabs": 0}
@@ -1661,6 +1710,8 @@ class Player(QWidget):
         hdr.addWidget(self.btn_settings)
         self.btn_skin = IconButton("palette", 26, 16, T("skin_tip"))
         self.btn_skin.clicked.connect(lambda: self.skin_menu(self.btn_skin.mapToGlobal(QPoint(0, 26))))
+        self.btn_lists = IconButton("playlist", 26, 16, T("lists_tip"), checkable=True)
+        self.btn_lists.toggled.connect(self.toggle_lists)
         self.btn_search = IconButton("search", 26, 16, T("search_tip"), checkable=True)
         self.btn_search.toggled.connect(self.toggle_search)
         self.btn_mini = IconButton("collapse", 26, 16, T("compact"))
@@ -1671,7 +1722,7 @@ class Player(QWidget):
         self.btn_minw.clicked.connect(self.showMinimized)
         self.btn_close = IconButton("close", 26, 15, T("close"), hover=PINK)
         self.btn_close.clicked.connect(self.close)
-        for b in (self.btn_skin, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
+        for b in (self.btn_skin, self.btn_lists, self.btn_search, self.btn_mini, self.btn_menu, self.btn_minw, self.btn_close):
             hdr.addWidget(b)
         root.addLayout(hdr)
 
@@ -1808,6 +1859,63 @@ class Player(QWidget):
             t.menu_requested.connect(self.rec_menu)
         root.addWidget(self.recs)
 
+        # playlists panel: the account's own and the ones YouTube suggests
+        self.lists_panel = QWidget()
+        lp = QVBoxLayout(self.lists_panel)
+        lp.setContentsMargins(0, 2, 0, 0)
+        lp.setSpacing(6)
+        div = QHBoxLayout()
+        div.setContentsMargins(0, 0, 0, 0)
+        div.setSpacing(6)
+        div.addWidget(Divider(), 1)
+        self.btn_lists_close = IconButton("close", 20, 12, T("lists_close"))
+        self.btn_lists_close.clicked.connect(lambda: self.btn_lists.setChecked(False))
+        div.addWidget(self.btn_lists_close)
+        lp.addLayout(div)
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        self.chip_mine = Chip(T("lists_mine"))
+        self.chip_sugg = Chip(T("lists_suggested"))
+        for c, kind in ((self.chip_mine, "mine"), (self.chip_sugg, "suggested")):
+            c.setCheckable(True)
+            c.clicked.connect(lambda _=False, k=kind: self.set_lists_kind(k))
+            row.addWidget(c)
+        self.chip_back = Chip(T("lists_back"))
+        self.chip_back.clicked.connect(self.lists_back)
+        self.chip_back.hide()
+        row.addWidget(self.chip_back)
+        row.addStretch(1)
+        self.btn_lists_reload = IconButton("refresh", 22, 14, T("lists_reload"))
+        self.btn_lists_reload.clicked.connect(self.reload_lists)
+        row.addWidget(self.btn_lists_reload)
+        lp.addLayout(row)
+        self.lists_status = QLabel("")
+        self.lists_status.setObjectName("hint")
+        self.lists_status.setFont(QFont(FONT_UI, 8))
+        self.lists_status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        lp.addWidget(self.lists_status)
+        self.lists_model = QStandardItemModel(self)
+        self.lists_view = QListView()
+        self.lists_view.setModel(self.lists_model)
+        self.lists_view.setItemDelegate(ResultDelegate(self))
+        self.lists_view.setMouseTracking(True)
+        self.lists_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.lists_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.lists_view.verticalScrollBar().setSingleStep(16)
+        self.lists_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.lists_view.setFixedHeight(ResultDelegate.H * 5 + 4)
+        self.lists_view.setCursor(Qt.PointingHandCursor)
+        self.lists_view.clicked.connect(self.on_list_clicked)
+        self.lists_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lists_view.customContextMenuRequested.connect(self.list_menu)
+        self._lists_vp = self.lists_view.viewport()
+        self._lists_vp.installEventFilter(self)
+        lp.addWidget(self.lists_view)
+        self.lists_panel.hide()
+        self.lists_panel.setFixedWidth(WIDTH - 24)
+        root.addWidget(self.lists_panel)
+
         # search panel
         self.search_panel = QWidget()
         sp = QVBoxLayout(self.search_panel)
@@ -1852,7 +1960,8 @@ class Player(QWidget):
         self.results_view.clicked.connect(self.on_result_clicked)
         self.results_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.results_view.customContextMenuRequested.connect(self.result_menu)
-        self.results_view.viewport().installEventFilter(self)
+        self._results_vp = self.results_view.viewport()
+        self._results_vp.installEventFilter(self)
         sp.addWidget(self.results_view)
         self.search_panel.hide()
         self.search_panel.setFixedWidth(WIDTH - 24)
@@ -1897,6 +2006,14 @@ class Player(QWidget):
         self.btn_mini.setToolTip(T("full") if self.mini else T("compact"))
         self.btn_settings.setToolTip(T("settings"))
         self.btn_search_close.setToolTip(T("search_close"))
+        self.btn_lists.setToolTip(T("lists_tip"))
+        self.btn_lists_close.setToolTip(T("lists_close"))
+        self.btn_lists_reload.setToolTip(T("lists_reload"))
+        self.chip_mine.setText(T("lists_mine"))
+        self.chip_sugg.setText(T("lists_suggested"))
+        self.chip_back.setText(T("lists_back"))
+        if self.lists_panel.isVisible():
+            self._show_lists_status()
         self.search_edit.setPlaceholderText(T("search_placeholder"))
         self.recs.retranslate()
         if self.recs_key:
@@ -2193,6 +2310,9 @@ class Player(QWidget):
         if self.search_panel.isVisible():
             rv = self.results_view.geometry().translated(self.search_panel.pos())
             draw_inset(p, QRectF(rv).adjusted(-3, -3, 3, 3))
+        if self.lists_panel.isVisible():
+            rv = self.lists_view.geometry().translated(self.lists_panel.pos())
+            draw_inset(p, QRectF(rv).adjusted(-3, -3, 3, 3))
 
     def resizeEvent(self, e):
         self._measure()
@@ -2318,6 +2438,8 @@ class Player(QWidget):
             self.show()
 
     def toggle_search(self, on):
+        if on:
+            self.btn_lists.setChecked(False)
         self.search_panel.setVisible(on)
         if on:
             self.search_edit.setFocus()
@@ -2385,6 +2507,11 @@ class Player(QWidget):
         elif k == Qt.Key_Escape:
             if self.search_panel.isVisible():
                 self.btn_search.setChecked(False)
+            elif self.lists_panel.isVisible():
+                if self.pl_open:
+                    self.lists_back()
+                else:
+                    self.btn_lists.setChecked(False)
         elif k in (Qt.Key_Space, Qt.Key_K, Qt.Key_MediaPlay, Qt.Key_MediaTogglePlayPause):
             self.toggle_play()
         elif k == Qt.Key_Left or k == Qt.Key_J:
@@ -2410,7 +2537,13 @@ class Player(QWidget):
             super().keyPressEvent(e)
 
     def eventFilter(self, obj, ev):
-        if obj is self.results_view.viewport() and ev.type() == ev.Type.MouseButtonRelease:
+        if obj is getattr(self, "_lists_vp", None) and ev.type() == ev.Type.MouseButtonRelease:
+            if ev.button() == Qt.MiddleButton:
+                idx = self.lists_view.indexAt(ev.position().toPoint())
+                if idx.isValid():
+                    self.open_list_in_browser(idx.data(ROLE_DATA))
+                    return True
+        if obj is getattr(self, "_results_vp", None) and ev.type() == ev.Type.MouseButtonRelease:
             if ev.button() == Qt.MiddleButton:
                 idx = self.results_view.indexAt(ev.position().toPoint())
                 if idx.isValid():
@@ -2457,6 +2590,10 @@ class Player(QWidget):
             self.on_agent_results(msg)
         elif t == "recommendations":
             self.on_agent_recs(msg)
+        elif t == "playlists":
+            self.on_agent_lists(msg)
+        elif t == "playlist_items":
+            self.on_agent_list_items(msg)
         elif t == "hello":
             self.refresh_ui()
         elif t == "alive" and not tab["state"]:
@@ -2931,7 +3068,9 @@ class Player(QWidget):
             self._show_update("downloading")
 
     def _on_update_download_failed(self, err):
+        self._install_when_downloaded = False
         if err == "Operation canceled":
+            self.update_changed.emit()
             return
         self._upd_err = err
         self._show_update("failed")
@@ -2958,11 +3097,35 @@ class Player(QWidget):
         elif state == "failed":
             b.show_state(T("upd_dl_failed", err=self._upd_err), (T("upd_retry"), self._download_update), later)
         self._fit()
+        self.update_changed.emit()
 
     def _hide_update(self):
         self._upd_state = None
         self.update_bar.hide()
         self._fit()
+        self.update_changed.emit()
+
+    def _on_update_downloaded(self, v):
+        self._show_update("ready")
+        if self._install_when_downloaded:
+            self._install_when_downloaded = False
+            self._restart_to_update()
+
+    def update_now(self):
+        """The settings window's Update now: installs what is downloaded,
+        or downloads the new version and then installs it (YukiTube
+        restarts); a copy that cannot update itself opens the release page."""
+        up = self.updater
+        if up.pending():
+            self._restart_to_update()
+        elif up.latest.get("version") and up.can_install() and up.latest.get("url"):
+            self._install_when_downloaded = True
+            if not up.downloading:
+                self._download_update()
+        elif up.latest.get("version"):
+            self._open_release_page()
+        else:
+            self.check_updates(manual=True)
 
     def _download_update(self):
         self._upd_pct = 0
@@ -2970,6 +3133,7 @@ class Player(QWidget):
         self.updater.download()
 
     def _cancel_update(self):
+        self._install_when_downloaded = False
         self.updater.cancel()
         self._show_update("available")
 
@@ -3120,6 +3284,242 @@ class Player(QWidget):
             f"https://www.youtube.com/watch?v={d['id']}"))
         m.exec(pos)
 
+    # ----------------------------------------------------------- playlists
+    def cur_list(self):
+        """The playlist playing now (the list= of the watch page), or ""."""
+        m = re.search(r"[?&]list=([\w-]+)", self.cur_state.get("url") or "")
+        return m.group(1) if m else ""
+
+    def toggle_lists(self, on):
+        if on:
+            self.btn_search.setChecked(False)
+        self.lists_panel.setVisible(on)
+        self._fit()
+        if on:
+            self.lists_view.setFocus()
+            if self.pl_open:
+                self._show_songs_status()
+            else:
+                self.load_lists()
+
+    def _lists_kind(self):
+        if self.pl_kind in ("mine", "suggested"):
+            return self.pl_kind
+        return "mine" if self._signed_in() else "suggested"
+
+    def set_lists_kind(self, kind):
+        self.pl_kind = kind
+        self.settings.setValue("lists/kind", kind)
+        self.pl_open = None
+        self.load_lists()
+
+    def reload_lists(self):
+        if self.pl_open:
+            self.show_songs(self.pl_open)
+        else:
+            self.pl_cache.pop(self._lists_kind(), None)
+            self.load_lists()
+
+    def lists_back(self):
+        self.pl_open = None
+        self.load_lists()
+
+    def _lists_header(self):
+        kind = self._lists_kind()
+        songs = self.pl_open is not None
+        self.chip_mine.setChecked(kind == "mine")
+        self.chip_sugg.setChecked(kind == "suggested")
+        self.chip_mine.setVisible(not songs)
+        self.chip_sugg.setVisible(not songs)
+        self.chip_back.setVisible(songs)
+
+    def _fill_lists(self, items):
+        self.lists_model.clear()
+        for it in items:
+            si = QStandardItem()
+            si.setData(it, ROLE_DATA)
+            tip = it.get("title", "")
+            if it.get("channel"):
+                tip += "\n" + it["channel"]
+            si.setToolTip(tip)
+            self.lists_model.appendRow(si)
+        self.lists_view.scrollToTop()
+
+    def load_lists(self):
+        """Shows the playlists of the chosen kind: from the cache, or asked
+        for through the YouTube tab."""
+        self.pl_open = None
+        self._lists_header()
+        kind = self._lists_kind()
+        acc = self._signed_in()
+        self.pl_shown_acc = acc
+        self.pl_wait = False
+        self.pl_req += 1
+        cached = self.pl_cache.get(kind)
+        if cached and cached["acc"] == bool(acc):
+            self._fill_lists(cached["items"])
+            self._show_lists_status()
+            return
+        self.lists_model.clear()
+        if kind == "mine" and acc is False:
+            self.lists_status.setText(T("lists_signin"))
+            return
+        key, tab = self._youtube_tab()
+        if not tab:
+            self.pl_wait = True
+            self.lists_status.setText(T("lists_wait"))
+            return
+        req = self.pl_req
+        seeds = []
+        for vid in self.history.seeds(6):
+            e = self.history.items.get(vid) or {}
+            seeds.append({"id": vid, "title": e.get("title", ""), "channel": e.get("channel", "")})
+        cur = self.cur_state
+        if cur.get("id") and all(x["id"] != cur["id"] for x in seeds):
+            seeds.insert(0, {"id": cur["id"], "title": cur.get("title", ""), "channel": cur.get("channel", "")})
+        self.lists_status.setText(T("lists_loading"))
+        self.ws.send(tab["conn"], {"type": "cmd", "tab": key, "action": "playlists", "reqId": req,
+                                   "value": {"kind": kind, "seeds": seeds[:6]}})
+        QTimer.singleShot(45000, lambda: self._lists_timeout(req))
+
+    def _lists_timeout(self, req):
+        if req == self.pl_req and not self.lists_model.rowCount() and self.lists_panel.isVisible():
+            self.lists_status.setText(T("lists_failed", err="timeout"))
+
+    def _maybe_lists(self):
+        """Asks again once YouTube is up, or when the account changed."""
+        if not self.lists_panel.isVisible() or self.pl_open:
+            return
+        acc = self._signed_in()
+        if self.pl_wait and self._youtube_tab()[1]:
+            self.load_lists()
+        elif acc is not None and acc != self.pl_shown_acc:
+            self.load_lists()
+
+    def _show_lists_status(self):
+        if self.pl_open:
+            return self._show_songs_status()
+        kind = self._lists_kind()
+        n = self.lists_model.rowCount()
+        if n:
+            self.lists_status.setText(T("lists_count_" + kind, n=n))
+        elif kind == "mine" and self._signed_in() is False:
+            self.lists_status.setText(T("lists_signin"))
+        else:
+            self.lists_status.setText(T("lists_none_mine" if kind == "mine" else "lists_none"))
+
+    def on_agent_lists(self, msg):
+        if msg.get("reqId") != self.pl_req:
+            return
+        kind = msg.get("kind")
+        err = msg.get("error") or ""
+        items = [dict(it) for it in msg.get("items") or [] if isinstance(it, dict) and it.get("list")]
+        for it in items:
+            if it["list"] == "LL":
+                it["title"] = it.get("title") or T("lists_liked")
+            elif it["list"] == "WL":
+                it["title"] = it.get("title") or T("lists_watch_later")
+        if err and not items:
+            if err == "signed out":
+                self.lists_status.setText(T("lists_signin"))
+            else:
+                self.lists_status.setText(T("lists_failed", err=err))
+            return
+        self.pl_cache[kind] = {"items": items, "acc": bool(msg.get("loggedIn"))}
+        if kind == self._lists_kind() and not self.pl_open:
+            self._fill_lists(items)
+            self._show_lists_status()
+
+    def show_songs(self, d):
+        """The songs of a playlist, in the panel."""
+        self.pl_open = d
+        self._lists_header()
+        self.lists_model.clear()
+        self.pl_req += 1
+        req = self.pl_req
+        key, tab = self._youtube_tab()
+        if not tab:
+            self.lists_status.setText(T("lists_wait"))
+            return
+        self.lists_status.setText(T("lists_songs_loading", t=d.get("title", "")))
+        self.ws.send(tab["conn"], {"type": "cmd", "tab": key, "action": "playlistItems", "reqId": req,
+                                   "value": {"list": d["list"], "id": d.get("id", "")}})
+        QTimer.singleShot(45000, lambda: self._lists_timeout(req))
+
+    def on_agent_list_items(self, msg):
+        if msg.get("reqId") != self.pl_req or not self.pl_open:
+            return
+        items = []
+        for i, it in enumerate(msg.get("items") or []):
+            if isinstance(it, dict) and it.get("id"):
+                items.append(dict(it, index=i))
+        if not items and msg.get("error"):
+            self.lists_status.setText(T("lists_failed", err=msg["error"]))
+            return
+        self._fill_lists(items)
+        self._show_songs_status()
+
+    def _show_songs_status(self):
+        t = (self.pl_open or {}).get("title", "")
+        n = self.lists_model.rowCount()
+        self.lists_status.setText(T("lists_songs", n=n, t=t) if n else T("lists_songs_none", t=t))
+
+    def play_list(self, pl, song=None):
+        """Plays a playlist, from its start or from one of its songs; next and
+        previous then go through it."""
+        if not pl or not pl.get("list"):
+            return
+        vid = (song or pl).get("id", "")
+        index = song.get("index", 0) if song else 0
+        if self.cur_key and self.cmd("openList", {"list": pl["list"], "id": vid, "index": index}):
+            shown = song or pl
+            self.title.set_text(shown.get("title", ""))
+            self.mini_title.set_text(shown.get("title", ""))
+            self.channel.setText(shown.get("channel", ""))
+        elif self.host and vid:
+            self.host.navigate_headless(f"https://www.youtube.com/watch?v={vid}&list={pl['list']}"
+                                        + (f"&index={index + 1}" if index else ""))
+        else:
+            self.open_list_in_browser(song or pl)
+
+    def on_list_clicked(self, idx):
+        d = idx.data(ROLE_DATA)
+        if not d:
+            return
+        if QGuiApplication.keyboardModifiers() & Qt.ControlModifier:
+            self.open_list_in_browser(d)
+        elif self.pl_open:
+            self.play_list(self.pl_open, d)
+        else:
+            self.play_list(d)
+
+    def _list_url(self, d):
+        if self.pl_open and not d.get("list"):  # a song of the open playlist
+            return f"https://www.youtube.com/watch?v={d['id']}&list={self.pl_open['list']}"
+        if d.get("list", "").startswith("RD") or d.get("list") in ("LL", "WL"):
+            return f"https://www.youtube.com/watch?v={d.get('id', '')}&list={d['list']}"
+        return f"https://www.youtube.com/playlist?list={d['list']}"
+
+    def open_list_in_browser(self, d):
+        if d and (d.get("list") or d.get("id")):
+            self.open_url(self._list_url(d))
+
+    def list_menu(self, pos):
+        idx = self.lists_view.indexAt(pos)
+        if not idx.isValid():
+            return
+        d = idx.data(ROLE_DATA)
+        m = QMenu(self)
+        if self.pl_open:
+            pl = self.pl_open
+            m.addAction(T("lists_play_from"), lambda: self.play_list(pl, d))
+        else:
+            m.addAction(T("lists_play"), lambda: self.play_list(d))
+            m.addAction(T("lists_show_songs"), lambda: self.show_songs(d))
+        m.addAction(T("open_new_tab"), lambda: self.open_list_in_browser(d))
+        m.addAction(T("copy_link"), lambda: QGuiApplication.clipboard().setText(self._list_url(d)))
+        m.exec(self.lists_view.viewport().mapToGlobal(pos))
+
     # ------------------------------------------------------------ ui sync
     def _tick(self):
         now = time.monotonic()
@@ -3131,6 +3531,7 @@ class Player(QWidget):
         else:
             self._update_time()
             self._maybe_recs()
+            self._maybe_lists()
 
     def _cur_time(self):
         st = self.cur_state
@@ -3225,6 +3626,7 @@ class Player(QWidget):
         self._sync_account(connected)
         self._update_time()
         self.results_view.viewport().update()
+        self.lists_view.viewport().update()
         self._count_play(st)
         self._maybe_recs()
 

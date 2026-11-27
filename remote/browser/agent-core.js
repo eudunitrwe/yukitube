@@ -136,8 +136,11 @@ function createYukiAgent(send) {
     }
   }
 
-  function navigate(id, t) {
-    const url = "/watch?v=" + encodeURIComponent(id) + (t ? "&t=" + Math.floor(t) + "s" : "");
+  function navigate(id, t, list, index) {
+    const url = "/watch?v=" + encodeURIComponent(id) + (t ? "&t=" + Math.floor(t) + "s" : "") +
+      (list ? "&list=" + encodeURIComponent(list) + (index ? "&index=" + (index + 1) : "") : "");
+    const watchEndpoint = { videoId: id };
+    if (list) { watchEndpoint.playlistId = list; if (index) watchEndpoint.index = index; }
     if (!isMusic && mainWorld) {
       const app = $("ytd-app");
       if (app) {
@@ -148,12 +151,14 @@ function createYukiAgent(send) {
             detail: {
               endpoint: {
                 commandMetadata: { webCommandMetadata: { url, webPageType: "WEB_PAGE_TYPE_WATCH", rootVe: 3832 } },
-                watchEndpoint: { videoId: id },
+                watchEndpoint,
               },
             },
           })));
           // if the SPA navigation did not happen, fall back to a full load
-          setTimeout(() => { if (videoId() !== id) location.href = url; }, 2500);
+          setTimeout(() => {
+            if (videoId() !== id || (list && new URL(location.href).searchParams.get("list") !== list)) location.href = url;
+          }, 2500);
           return;
         } catch (e) {}
       }
@@ -225,7 +230,7 @@ function createYukiAgent(send) {
     const walk = (n) => {
       if (items.length >= limit || !n || typeof n !== "object") return;
       if (Array.isArray(n)) { n.forEach(walk); return; }
-      const vr = n.videoRenderer || n.compactVideoRenderer;
+      const vr = n.videoRenderer || n.compactVideoRenderer || n.playlistVideoRenderer;
       if (vr && vr.videoId) {
         add({
           id: vr.videoId,
@@ -307,13 +312,17 @@ function createYukiAgent(send) {
     return "SAPISIDHASH " + ts + "_" + hex;
   }
 
-  async function musicTab(limit) {
-    const r = await fetch("/", { credentials: "include" });
+  async function pageData(path) {
+    const r = await fetch(path, { credentials: "include" });
     const html = await r.text();
     const m = html.match(/(?:var ytInitialData|window\["ytInitialData"\])\s*=\s*(\{.+?\});\s*<\/script>/s);
     if (!m) throw new Error("no data");
-    const token = musicChipToken(JSON.parse(m[1]));
-    if (!token) throw new Error("no Music tab");
+    return JSON.parse(m[1]);
+  }
+
+  // A continuation of a page (the next rows of a feed or a playlist), as
+  // YouTube's own scripts ask for it.
+  async function browseMore(token) {
     const headers = {
       "Content-Type": "application/json",
       "X-Youtube-Client-Name": String(cfg("INNERTUBE_CONTEXT_CLIENT_NAME") || 1),
@@ -329,7 +338,17 @@ function createYukiAgent(send) {
       body: JSON.stringify({ context: plain(cfg("INNERTUBE_CONTEXT")) || {}, continuation: token }),
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    return videosIn(await res.json(), limit);
+    return res.json();
+  }
+
+  async function musicTabData() {
+    const token = musicChipToken(await pageData("/"));
+    if (!token) throw new Error("no Music tab");
+    return browseMore(token);
+  }
+
+  async function musicTab(limit) {
+    return videosIn(await musicTabData(), limit);
   }
 
   // The songs of a YouTube Mix (a watch page opened with list=RD<id>):
@@ -385,6 +404,197 @@ function createYukiAgent(send) {
     send({ type: "recommendations", reqId, items, error, loggedIn: account().loggedIn, fresh: recent.length > 0 });
   }
 
+  // ------------------------------------------------------------ playlists
+  // Playlists in a page's data: the newer lockups (playlists, albums, mixes)
+  // and the older renderers. Each one: the list's id, its first video (for
+  // the thumbnail and to start playing), title, owner, size.
+  function listsIn(data, limit) {
+    const items = [], seen = new Set();
+    const txt = (n) => !n ? "" : typeof n === "string" ? n : n.simpleText || n.content ||
+      (n.runs || []).map((x) => x.text).join("");
+    const first = (n, key) => {
+      if (!n || typeof n !== "object") return null;
+      if (!Array.isArray(n) && key in n) return n[key];
+      for (const k in n) { const r = first(n[k], key); if (r) return r; }
+      return null;
+    };
+    const thumbId = (n) => {
+      const m = JSON.stringify(n || {}).match(/\/vi\/([\w-]{11})\//);
+      return m ? m[1] : "";
+    };
+    const add = (it) => {
+      if (it.list && !seen.has(it.list) && items.length < limit) { seen.add(it.list); items.push(it); }
+    };
+    const walk = (n) => {
+      if (items.length >= limit || !n || typeof n !== "object") return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      const lv = n.lockupViewModel;
+      if (lv) {
+        if (lv.contentType && lv.contentType !== "LOCKUP_CONTENT_TYPE_VIDEO" && lv.contentId &&
+            !/^UC/.test(lv.contentId)) {
+          const md = (lv.metadata && lv.metadata.lockupMetadataViewModel) || {};
+          const rows = (md.metadata && md.metadata.contentMetadataViewModel &&
+            md.metadata.contentMetadataViewModel.metadataRows) || [];
+          const parts = (rows[0] && rows[0].metadataParts || []).map((p) => txt(p.text)).filter(Boolean);
+          const we = first(lv.rendererContext, "watchEndpoint") || {};
+          const badge = first(lv.contentImage, "thumbnailBadgeViewModel") || {};
+          add({ list: lv.contentId, id: we.videoId || thumbId(lv.contentImage), title: txt(md.title),
+            channel: parts.filter((p) => !/^(playlist|mix|album|podcast)$/i.test(p)).join(" · "),
+            duration: badge.text || "", views: "" });
+        }
+        return;
+      }
+      const pr = n.playlistRenderer || n.gridPlaylistRenderer || n.radioRenderer || n.compactRadioRenderer ||
+        n.compactPlaylistRenderer;
+      if (pr && pr.playlistId) {
+        const we = first(pr.navigationEndpoint, "watchEndpoint") || {};
+        add({ list: pr.playlistId, id: we.videoId || thumbId(pr.thumbnail || pr.thumbnails), title: txt(pr.title),
+          channel: txt(pr.shortBylineText || pr.longBylineText),
+          duration: txt(pr.videoCountShortText || pr.videoCountText || pr.thumbnailText), views: "" });
+        return;
+      }
+      for (const k in n) if (!SKIP.has(k) || k === "richShelfRenderer") walk(n[k]);
+    };
+    walk(data);
+    return items;
+  }
+
+  function tokenIn(n) {
+    if (!n || typeof n !== "object") return "";
+    if (Array.isArray(n)) {
+      for (const v of n) { const t = tokenIn(v); if (t) return t; }
+      return "";
+    }
+    const c = n.continuationItemRenderer || n.continuationItemViewModel;
+    if (c) {
+      const m = JSON.stringify(c).match(/"continuationCommand":\{"token":"([^"]+)"/);
+      return m ? m[1] : "";
+    }
+    for (const k in n) { const t = tokenIn(n[k]); if (t) return t; }
+    return "";
+  }
+
+  // The account's own playlists (and the ones it saved), with Liked videos
+  // and Watch later.
+  async function myLists() {
+    let data = await pageData("/feed/playlists");
+    let items = listsIn(data, 200);
+    for (let i = 0; i < 5 && items.length < 200; i++) {
+      const tok = tokenIn(data);
+      if (!tok) break;
+      try { data = await browseMore(tok); } catch (e) { break; }
+      const more = listsIn(data, 200);
+      if (!more.length) break;
+      items = items.concat(more.filter((x) => !items.some((y) => y.list === x.list)));
+    }
+    if (!items.length) items = listsIn(await pageData("/feed/library"), 200);
+    for (const special of ["WL", "LL"]) {
+      if (items.some((x) => x.list === special)) continue;
+      let songs = [];
+      try { songs = await playlistVideos(special, 1); } catch (e) {}
+      if (songs.length) items.unshift({ list: special, id: songs[0].id, title: "", channel: "", duration: "", views: "" });
+    }
+    return items;
+  }
+
+  // Playlists YouTube picks: the mixes and playlists of the home page and of
+  // its Music tab, "My Mix", the Mix of what was heard lately, and playlists
+  // like the ones of the channels heard most.
+  async function suggestedLists(val) {
+    const signed = account().loggedIn;
+    const seeds = ((val && val.seeds) || []).filter((x) => x && x.id);
+    let recent = [];
+    if (signed) { try { recent = await pageVideos("/feed/history", 10); } catch (e) {} }
+    const pool = [];
+    for (const v of recent.concat(seeds)) if (!pool.some((x) => x.id === v.id)) pool.push(v);
+    const mixes = pool.slice(0, 6).map((v) => ({ list: "RD" + v.id, id: v.id,
+      title: "Mix – " + (v.title || ""), channel: v.channel || "YouTube", duration: "Mix", views: "" }));
+    const channels = [];
+    for (const v of pool) {
+      const c = (v.channel || "").replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim();
+      if (c && !channels.includes(c)) channels.push(c);
+      if (channels.length >= 3) break;
+    }
+    const jobs = [
+      pageData("/").then((d) => listsIn(d, 30)).catch(() => []),
+      signed ? musicTabData().then((d) => listsIn(d, 30)).catch(() => []) : Promise.resolve([]),
+      ...channels.map((c) => pageData("/results?search_query=" + encodeURIComponent(c) + "&sp=EgIQAw%253D%253D")
+        .then((d) => listsIn(d, 8)).catch(() => [])),
+    ];
+    const lists = await Promise.all(jobs);
+    const out = [], seen = new Set();
+    const take = (x) => { if (x && x.list && x.id && !seen.has(x.list)) { seen.add(x.list); out.push(x); } };
+    for (let i = 0; i < 30; i++) {
+      take(mixes[i]);
+      lists.forEach((l) => take(l[i]));
+    }
+    return out.slice(0, 60);
+  }
+
+  // The videos of a playlist. A Mix has no playlist page: its videos are
+  // the ones beside the player on its watch page.
+  async function playlistVideos(list, limit, firstId) {
+    if (/^RD/.test(list)) {
+      const id = firstId || list.slice(2);
+      const out = [];
+      const txt = (n) => !n ? "" : n.simpleText || (n.runs || []).map((x) => x.text).join("");
+      const walk = (n) => {
+        if (out.length >= limit || !n || typeof n !== "object") return;
+        if (Array.isArray(n)) { n.forEach(walk); return; }
+        const pv = n.playlistPanelVideoRenderer;
+        if (pv && pv.videoId) {
+          out.push({ id: pv.videoId, title: txt(pv.title), channel: txt(pv.shortBylineText || pv.longBylineText),
+            duration: txt(pv.lengthText), views: "" });
+          return;
+        }
+        for (const k in n) walk(n[k]);
+      };
+      walk(await pageData("/watch?v=" + encodeURIComponent(id) + "&list=" + encodeURIComponent(list)));
+      return out;
+    }
+    let data = await pageData("/playlist?list=" + encodeURIComponent(list));
+    let items = videosIn(data, limit);
+    for (let i = 0; i < 10 && items.length < limit; i++) {
+      const tok = tokenIn(data);
+      if (!tok) break;
+      try { data = await browseMore(tok); } catch (e) { break; }
+      const more = videosIn(data, limit).filter((x) => !items.some((y) => y.id === x.id));
+      if (!more.length) break;
+      items = items.concat(more);
+    }
+    return items.slice(0, limit);
+  }
+
+  async function playlists(reqId, val) {
+    const kind = (val && val.kind) === "mine" ? "mine" : "suggested";
+    let items = [], error = "";
+    try {
+      if (isMusic) throw new Error("playlists only from www.youtube.com");
+      if (kind === "mine" && !account().loggedIn) throw new Error("signed out");
+      items = kind === "mine" ? await myLists() : await suggestedLists(val);
+    } catch (e) { error = String(e && e.message || e); }
+    send({ type: "playlists", reqId, kind, items, error, loggedIn: account().loggedIn });
+  }
+
+  async function playlistItems(reqId, val) {
+    let items = [], error = "";
+    try {
+      items = await playlistVideos(String(val.list), 200, val.id);
+    } catch (e) { error = String(e && e.message || e); }
+    send({ type: "playlist_items", reqId, list: val.list, items, error });
+  }
+
+  // Plays a playlist: from the given video, or from its first one.
+  async function openList(val) {
+    const list = String(val.list);
+    let id = val.id ? String(val.id) : "";
+    if (!id) {
+      try { const v = await playlistVideos(list, 1); id = v.length ? v[0].id : ""; } catch (e) {}
+    }
+    if (!id && /^RD/.test(list)) id = list.slice(2);
+    if (id) navigate(id, 0, list, Number(val.index) || 0);
+  }
+
   function handle(msg) {
     if (!msg || msg.type !== "cmd") return;
     const v = video();
@@ -426,6 +636,9 @@ function createYukiAgent(send) {
       case "open": if (val && val.id) navigate(String(val.id), val.t); break;
       case "search": search(String(val || ""), msg.reqId); return;
       case "recommend": recommend(msg.reqId, val); return;
+      case "playlists": playlists(msg.reqId, val); return;
+      case "playlistItems": if (val && val.list) playlistItems(msg.reqId, val); return;
+      case "openList": if (val && val.list) openList(val); break;
       case "focus": window.focus(); break;
     }
     setTimeout(() => push(true), 120);
