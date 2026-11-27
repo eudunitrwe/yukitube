@@ -219,10 +219,13 @@ function createYukiAgent(send, sendFrame) {
     }
   }
 
-  function navigate(id, t, list, index) {
+  function navigate(id, t, list, index, checked) {
     const url = "/watch?v=" + encodeURIComponent(id) + (t ? "&t=" + Math.floor(t) + "s" : "") +
-      (list ? "&list=" + encodeURIComponent(list) + (index ? "&index=" + (index + 1) : "") : "");
-    const watchEndpoint = { videoId: id };
+      (list ? "&list=" + encodeURIComponent(list) + (index ? "&index=" + (index + 1) : "") : "") +
+      (checked ? "&rco=1" : "");
+    // contentCheckOk / racyCheckOk: what YouTube's "I understand and wish to
+    // proceed" sends; with them a video behind a content warning just plays.
+    const watchEndpoint = { videoId: id, contentCheckOk: true, racyCheckOk: true };
     if (list) { watchEndpoint.playlistId = list; if (index) watchEndpoint.index = index; }
     if (!isMusic && mainWorld) {
       const app = $("ytd-app");
@@ -240,7 +243,8 @@ function createYukiAgent(send, sendFrame) {
           })));
           // if the SPA navigation did not happen, fall back to a full load
           setTimeout(() => {
-            if (videoId() !== id || (list && new URL(location.href).searchParams.get("list") !== list)) location.href = url;
+            if (videoId() !== id || (list && new URL(location.href).searchParams.get("list") !== list) ||
+                (checked && (CHECKS.test(playability(id)) || warningShown()))) location.href = url;
           }, 2500);
           return;
         } catch (e) {}
@@ -771,31 +775,49 @@ function createYukiAgent(send, sendFrame) {
   }
 
   // -------------------------------------------------- content warnings
-  // Videos YouTube marks as possibly inappropriate (and age-restricted ones,
-  // when signed in) stop on a page with "I understand and wish to proceed";
-  // autoplay and playlists stop there too. Press it and play.
+  // Videos YouTube marks "Viewer discretion is advised" (and age-restricted
+  // ones, when signed in) stop on a warning; autoplay and playlists stop
+  // there too. Open the video again the way YouTube's "I understand and wish
+  // to proceed" does (contentCheckOk / racyCheckOk), and it plays.
+  const CHECKS = /^(CONTENT_CHECK_REQUIRED|AGE_CHECK_REQUIRED|AGE_VERIFICATION_REQUIRED)$/;
+  function playability(id) {
+    const srcs = [];
+    const r = call("getPlayerResponse");
+    if (r.ok) srcs.push(r.v);
+    try { const f = pageWin.document.querySelector("ytd-watch-flexy"); if (f) srcs.push(f.playerData, f.__data && f.__data.playerData); } catch (e) {}
+    try { srcs.push(pageWin.ytInitialPlayerResponse); } catch (e) {}
+    for (const pr of srcs) {
+      try {
+        if (!pr || !pr.playabilityStatus) continue;
+        const vid = pr.videoDetails && pr.videoDetails.videoId;
+        if (vid && vid !== id) continue;
+        return String(pr.playabilityStatus.status || "");
+      } catch (e) {}
+    }
+    return "";
+  }
+  // The warning on the page (when the player response cannot be read).
+  function warningShown() {
+    for (const b of document.querySelectorAll("#player button, #player-container button, ytd-watch-flexy button")) {
+      if (visible(b) && /proceed|continua|продолж|înțeleg|inteleg/i.test(b.textContent || "")) return true;
+    }
+    return false;
+  }
   let proceeded = "";
   function proceedWarning() {
     if (isMusic) return;
     const id = videoId();
     if (!id || proceeded === id) return;
-    const box = $("yt-playability-error-supported-renderers") || $("#error-screen");
-    if (!box || !visible(box)) return;
-    let btn = null;
-    for (const b of box.querySelectorAll("#proceed-button button, button, a[role=button]")) {
-      if (!visible(b)) continue;
-      const a = b.closest("a[href]");
-      // never "Sign in" (a link to the Google login page)
-      if (a && /accounts\.google|ServiceLogin|signin/i.test(a.getAttribute("href") || "")) continue;
-      if (/sign.?in|conecta|войти|anmelden|connexion|iniciar/i.test(b.textContent || "")) continue;
-      btn = b;
-      if (b.closest("#proceed-button")) break;
-    }
-    if (!btn) return;
+    let u;
+    try { u = new URL(location.href); } catch (e) { return; }
+    if (!CHECKS.test(playability(id)) && !warningShown()) return;
     proceeded = id;
-    btn.click();
-    setTimeout(play, 1200);
-    setTimeout(() => push(true), 1500);
+    if (u.searchParams.get("rco") === "1") return;   // already confirmed: never loop
+    const list = u.searchParams.get("list") || "";
+    const index = Math.max(0, (parseInt(u.searchParams.get("index"), 10) || 1) - 1);
+    navigate(id, 0, list, index, true);
+    setTimeout(play, 2500);
+    setTimeout(() => push(true), 3000);
   }
 
   setInterval(() => { try { proceedWarning(); } catch (e) {} push(false); }, 500);
