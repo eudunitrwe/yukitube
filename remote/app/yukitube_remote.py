@@ -1962,9 +1962,6 @@ class Player(QWidget):
         self.btn_skip.clicked.connect(lambda: self.cmd("skipAd"))
         chips.addWidget(self.btn_skip)
         chips.addStretch(1)
-        self.btn_open = IconButton("open", 24, 14, T("youtube_window_tip"))
-        self.btn_open.clicked.connect(self.toggle_youtube)
-        chips.addWidget(self.btn_open)
         col.addLayout(chips)
         info.addLayout(col, 1)
         self.info_w = QWidget()
@@ -2247,7 +2244,7 @@ class Player(QWidget):
         for w, key in ((self.btn_tab, "tab_chip_tip"), (self.btn_skin, "skin_tip"), (self.btn_search, "search_tip"),
                        (self.btn_menu, "menu"), (self.btn_minw, "minimize"), (self.btn_close, "close"),
                        (self.btn_like, "like"), (self.btn_speed, "speed_tip"), (self.btn_skip, "skip_tip"),
-                       (self.btn_open, "youtube_window_tip"), (self.btn_loop, "loop_tip"), (self.btn_prev, "prev_tip"),
+                       (self.btn_loop, "loop_tip"), (self.btn_prev, "prev_tip"),
                        (self.btn_rew, "rew_tip"), (self.btn_fwd, "fwd_tip"), (self.btn_next, "next_tip"),
                        (self.btn_stop, "stop_tip"), (self.btn_vol, "mute_tip"), (self.btn_play, "play_tip"),
                        (self.thumb, "thumb_tip")):

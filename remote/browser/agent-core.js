@@ -770,7 +770,35 @@ function createYukiAgent(send, sendFrame) {
     setTimeout(() => push(true), 600);
   }
 
-  setInterval(() => push(false), 500);
+  // -------------------------------------------------- content warnings
+  // Videos YouTube marks as possibly inappropriate (and age-restricted ones,
+  // when signed in) stop on a page with "I understand and wish to proceed";
+  // autoplay and playlists stop there too. Press it and play.
+  let proceeded = "";
+  function proceedWarning() {
+    if (isMusic) return;
+    const id = videoId();
+    if (!id || proceeded === id) return;
+    const box = $("yt-playability-error-supported-renderers") || $("#error-screen");
+    if (!box || !visible(box)) return;
+    let btn = null;
+    for (const b of box.querySelectorAll("#proceed-button button, button, a[role=button]")) {
+      if (!visible(b)) continue;
+      const a = b.closest("a[href]");
+      // never "Sign in" (a link to the Google login page)
+      if (a && /accounts\.google|ServiceLogin|signin/i.test(a.getAttribute("href") || "")) continue;
+      if (/sign.?in|conecta|войти|anmelden|connexion|iniciar/i.test(b.textContent || "")) continue;
+      btn = b;
+      if (b.closest("#proceed-button")) break;
+    }
+    if (!btn) return;
+    proceeded = id;
+    btn.click();
+    setTimeout(play, 1200);
+    setTimeout(() => push(true), 1500);
+  }
+
+  setInterval(() => { try { proceedWarning(); } catch (e) {} push(false); }, 500);
   document.addEventListener("play", () => push(true), true);
   document.addEventListener("pause", () => push(true), true);
   document.addEventListener("volumechange", () => push(true), true);
