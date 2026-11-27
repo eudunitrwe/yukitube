@@ -1219,6 +1219,8 @@ class VideoView(QWidget):
         self._click.timeout.connect(win.toggle_play)
         self.setCursor(Qt.PointingHandCursor)
         self.setToolTip(T("tv_view_tip"))
+        self.setMouseTracking(True)
+        self._over_btn = False
         if full:
             self.setWindowTitle(APP_NAME)
             self.setAttribute(Qt.WA_DeleteOnClose)
@@ -1231,12 +1233,35 @@ class VideoView(QWidget):
     def mousePressEvent(self, e):
         e.accept()  # not passed on: it would start moving the window
 
+    def full_rect(self):
+        """The full-screen button, in the bottom right corner."""
+        s = 44 if self.full else 30
+        m = 16 if self.full else 8
+        return QRectF(self.width() - s - m, self.height() - s - m, s, s)
+
+    def mouseMoveEvent(self, e):
+        over = self.full_rect().contains(e.position())
+        if over != self._over_btn:
+            self._over_btn = over
+            self.setToolTip(T("tv_full_exit" if self.full else "tv_full") if over else T("tv_view_tip"))
+            self.update()
+
+    def leaveEvent(self, e):
+        if self._over_btn:
+            self._over_btn = False
+            self.update()
+
     def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            self._click.start(QApplication.doubleClickInterval())
+        if e.button() != Qt.LeftButton:
+            return
+        if self.full_rect().contains(e.position()):
+            self._click.stop()
+            self.win.toggle_video_full()
+            return
+        self._click.start(QApplication.doubleClickInterval())
 
     def mouseDoubleClickEvent(self, e):
-        if e.button() == Qt.LeftButton:
+        if e.button() == Qt.LeftButton and not self.full_rect().contains(e.position()):
             self._click.stop()
             self.win.toggle_video_full()
 
@@ -1274,6 +1299,15 @@ class VideoView(QWidget):
             p.setPen(QColor("#9a9ab0"))
             p.setFont(QFont(FONT_UI, 10))
             p.drawText(r, Qt.AlignCenter, T("tv_waiting") if self.win.cur_key else T("tv_no_tab"))
+        # the full-screen button
+        br = self.full_rect()
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(0, 0, 0, 170 if self._over_btn else 110))
+        p.drawRoundedRect(br, 6, 6)
+        col = "#ffffff" if self._over_btn else "#d8d8e8"
+        isz = int(br.width() * 0.7)
+        pm = icons.pixmap("fullscreen_exit" if self.full else "fullscreen", col, isz, self.devicePixelRatioF())
+        p.drawPixmap(QPointF(br.center().x() - isz / 2, br.center().y() - isz / 2), pm)
         if not self.full:
             p.setBrush(Qt.NoBrush)
             if classic():
