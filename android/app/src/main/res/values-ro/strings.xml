@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search">Caută</string>
+    <string name="search_hint">Caută pe YouTube…</string>
+    <string name="playlists">Playlisturi</string>
+    <string name="queue">Coadă</string>
+    <string name="video_mode">Mod video</string>
+    <string name="full_screen">Ecran complet</string>
+    <string name="account_signin">Conectează contul Google</string>
+    <string name="account_signed_in">Cont Google conectat</string>
+    <string name="sign_out">Deconectează</string>
+    <string name="signin_title">Conectare — se închide singură când ai terminat</string>
+    <string name="close">Închide</string>
+    <string name="settings">Setări</string>
+    <string name="music_for_you">MUZICĂ PENTRU TINE</string>
+    <string name="results">REZULTATE</string>
+    <string name="reload">Reîncarcă</string>
+    <string name="loading">Se încarcă…</string>
+    <string name="starting">Pornesc YouTube…</string>
+    <string name="nothing_playing">Nu cântă nimic</string>
+    <string name="nothing_hint">Caută sau alege ceva de mai jos.</string>
+    <string name="up_next" formatted="true">Urmează: %1$s</string>
+    <string name="lists_mine">ALE MELE</string>
+    <string name="lists_suggested">PROPUSE DE YOUTUBE</string>
+    <string name="lists_back">‹ PLAYLISTURI</string>
+    <string name="lists_signin">Conectează contul Google ca să-ți vezi playlisturile.</string>
+    <string name="play_all">Redă tot</string>
+    <string name="songs">Melodii</string>
+    <string name="queue_now">acum</string>
+    <string name="queue_next">urmează</string>
+    <string name="queue_empty">Încă nu cântă nimic. Pornește ceva și coada apare aici.</string>
+    <string name="empty">Nimic aici.</string>
+    <string name="error" formatted="true">Nu s-a putut încărca: %1$s</string>
+    <string name="skin">Skin</string>
+    <string name="language">Limba</string>
+    <string name="lang_system">Sistem</string>
+    <string name="updates">Actualizări</string>
+    <string name="check_now">Verifică acum</string>
+    <string name="update_now">Actualizează acum</string>
+    <string name="up_to_date">YukiTube este la zi.</string>
+    <string name="update_available" formatted="true">YukiTube %1$s este disponibil.</string>
+    <string name="update_failed" formatted="true">Actualizarea a eșuat: %1$s</string>
+    <string name="downloading" formatted="true">Se descarcă… %1$d%%</string>
+    <string name="update_install_perm">Permite-i lui YukiTube să instaleze actualizări, apoi apasă din nou Actualizează acum.</string>
+    <string name="version" formatted="true">Versiunea %1$s</string>
+    <string name="credit">Făcut de eudunitrwe cu ajutorul Claude Code</string>
+    <string name="notif_channel">Redare</string>
+    <string name="play">Redă</string>
+    <string name="pause">Pauză</string>
+    <string name="next">Următoarea</string>
+    <string name="prev">Anterioara</string>
+    <string name="loop">Repetă</string>
+    <string name="like">Îmi place</string>
+    <string name="speed">Viteză</string>
+    <string name="exit">Închide YukiTube</string>
+    <string name="ad">Sar peste o reclamă…</string>
+    <string name="background_hint">Cântă și cu ecranul stins. Închide din ⚙ sau din notificare.</string>
+</resources>

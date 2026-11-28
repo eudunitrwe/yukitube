@@ -1,0 +1,23 @@
+#!/bin/bash
+# Builds the Android app: dist/yukitube-<version>-android.apk (signed).
+# The version is the desktop app's (pkgbuild/PKGBUILD pkgver).
+#
+# Needs JDK 17 and the Android SDK; by default from ~/Android (jdk17, Sdk).
+# The signing key stays out of the repo: ~/.android-keys/yukitube.properties
+# (storeFile, storePassword, keyAlias, keyPassword). Updates install only
+# when they are signed with the same key, so keep a backup of it.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+root=$(dirname "$here")
+export JAVA_HOME=${JAVA_HOME:-$HOME/Android/jdk17}
+export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
+props=${YUKITUBE_KEYSTORE_PROPS:-$HOME/.android-keys/yukitube.properties}
+[[ -f $props ]] || { echo "no signing key: $props" >&2; exit 1; }
+[[ -f $here/local.properties ]] || echo "sdk.dir=$ANDROID_HOME" >"$here/local.properties"
+version=$(sed -n 's/^pkgver=//p' "$root/pkgbuild/PKGBUILD")
+(cd "$here" && ./gradlew --console=plain -q clean assembleRelease)
+mkdir -p "$root/dist"
+out=$root/dist/yukitube-$version-android.apk
+cp "$here/app/build/outputs/apk/release/app-release.apk" "$out"
+"$JAVA_HOME/bin/java" -jar "$(ls -d "$ANDROID_HOME"/build-tools/*/ | tail -1)lib/apksigner.jar" verify "$out"
+echo "Built: $out"

@@ -10,6 +10,7 @@
 #                                            Python + Qt)
 #   yukitube-<version>-windows-x64-setup.exe the same, as an installer (NSIS) into
 #                                            C:\Program Files (x86)\YukiTube
+#   yukitube-<version>-android.apk           the Android app (android/build)
 #
 # Each carries the verified add-ons, so installing needs no download. Only
 # what YukiTube uses is kept, to keep the downloads small.
@@ -210,8 +211,11 @@ cp "$root/pkgbuild/yukitube-$version-1-any.pkg.tar.zst" "$pkg"
 echo "==> windows: installer"
 mkdir -p "$work/tmp"
 TMPDIR=$work/tmp "${MAKENSIS:-makensis}" -V2 -DVERSION="$version" -DSRC="$win" -DOUTFILE="$exe" "$root/windows/installer.nsi"
+echo "==> android"
+apk=$dist/yukitube-$version-android.apk
+"$root/android/build"
 (cd "$dist" && sha256sum "$(basename "$txz")" "$(basename "$pkg")" "$(basename "$zip")" "$(basename "$exe")" \
-  >"yukitube-$version-SHA256SUMS")
+  "$(basename "$apk")" >"yukitube-$version-SHA256SUMS")
 
 echo "Built:"
-ls -lh "$txz" "$pkg" "$zip" "$exe"
+ls -lh "$txz" "$pkg" "$zip" "$exe" "$apk"

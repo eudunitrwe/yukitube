@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YukiTube</string>
+    <string name="search">Search</string>
+    <string name="search_hint">Search YouTube…</string>
+    <string name="playlists">Playlists</string>
+    <string name="queue">Queue</string>
+    <string name="video_mode">Video mode</string>
+    <string name="full_screen">Full screen</string>
+    <string name="account_signin">Sign in with Google</string>
+    <string name="account_signed_in">Google account connected</string>
+    <string name="sign_out">Sign out</string>
+    <string name="signin_title">Sign in — it closes by itself when you are done</string>
+    <string name="close">Close</string>
+    <string name="settings">Settings</string>
+    <string name="music_for_you">MUSIC FOR YOU</string>
+    <string name="results">RESULTS</string>
+    <string name="reload">Reload</string>
+    <string name="loading">Loading…</string>
+    <string name="starting">Starting YouTube…</string>
+    <string name="nothing_playing">Nothing is playing</string>
+    <string name="nothing_hint">Search or pick something below.</string>
+    <string name="up_next" formatted="true">Up next: %1$s</string>
+    <string name="lists_mine">MINE</string>
+    <string name="lists_suggested">SUGGESTED BY YOUTUBE</string>
+    <string name="lists_back">‹ PLAYLISTS</string>
+    <string name="lists_signin">Sign in with Google to see your own playlists.</string>
+    <string name="play_all">Play all</string>
+    <string name="songs">Songs</string>
+    <string name="queue_now">playing now</string>
+    <string name="queue_next">up next</string>
+    <string name="queue_empty">Nothing plays yet. Play something and the queue appears here.</string>
+    <string name="empty">Nothing here.</string>
+    <string name="error" formatted="true">Could not load: %1$s</string>
+    <string name="skin">Skin</string>
+    <string name="language">Language</string>
+    <string name="lang_system">System</string>
+    <string name="updates">Updates</string>
+    <string name="check_now">Check now</string>
+    <string name="update_now">Update now</string>
+    <string name="up_to_date">YukiTube is up to date.</string>
+    <string name="update_available" formatted="true">YukiTube %1$s is available.</string>
+    <string name="update_failed" formatted="true">Update failed: %1$s</string>
+    <string name="downloading" formatted="true">Downloading… %1$d%%</string>
+    <string name="update_install_perm">Allow YukiTube to install updates, then tap Update now again.</string>
+    <string name="version" formatted="true">Version %1$s</string>
+    <string name="credit">Made by eudunitrwe with the help of Claude Code</string>
+    <string name="notif_channel">Playback</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="next">Next</string>
+    <string name="prev">Previous</string>
+    <string name="loop">Loop</string>
+    <string name="like">Like</string>
+    <string name="speed">Speed</string>
+    <string name="exit">Quit YukiTube</string>
+    <string name="ad">Skipping an ad…</string>
+    <string name="background_hint">Keeps playing with the screen off. Quit from ⚙ or the notification.</string>
+</resources>

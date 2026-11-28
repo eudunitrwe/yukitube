@@ -1,7 +1,7 @@
 # YukiTube
 
-**🇬🇧 A small music & video player for YouTube, for Linux and Windows 10/11.**
-**🇷🇴 Un player mic de muzică și video pentru YouTube, pentru Linux și Windows 10/11.**
+**🇬🇧 A small music & video player for YouTube, for Linux, Windows 10/11 and Android.**
+**🇷🇴 Un player mic de muzică și video pentru YouTube, pentru Linux, Windows 10/11 și Android.**
 
 Made by **[eudunitrwe](https://github.com/eudunitrwe)** with the help of **[Claude Code](https://claude.com/claude-code)**.
 Făcut de **[eudunitrwe](https://github.com/eudunitrwe)** cu ajutorul **[Claude Code](https://claude.com/claude-code)**.
@@ -56,6 +56,12 @@ If SmartScreen says "Windows protected your PC", click **More info → Run anywa
 
 The first start takes a few seconds longer while YukiTube sets itself up.
 
+### Install on Android (8.0 and newer)
+
+From the [latest release](https://github.com/eudunitrwe/yukitube/releases/latest), download `yukitube-<version>-android.apk` on your phone and open it. If Android asks, allow your browser to **install unknown apps**, then tap **Install**.
+
+YukiTube keeps playing with the screen off or in another app (controls in the notification and on the lock screen). Back or Home leaves it playing; to quit, use ⚙ Settings → Quit YukiTube, the ✕ in the notification, or swipe it away from the recent apps. Share a YouTube link to YukiTube to play it. Updates install from ⚙ Settings → Update now.
+
 ---
 
 ## 🇷🇴 Română
@@ -103,3 +109,9 @@ Din [ultima versiune](https://github.com/eudunitrwe/yukitube/releases/latest), f
 Dacă SmartScreen afișează „Windows protected your PC”, apasă **More info → Run anyway**.
 
 Prima pornire durează câteva secunde în plus, cât YukiTube se pregătește singur.
+
+### Instalare pe Android (8.0 sau mai nou)
+
+Din [ultima versiune](https://github.com/eudunitrwe/yukitube/releases/latest), descarcă `yukitube-<versiune>-android.apk` pe telefon și deschide-l. Dacă Android cere, permite-i browserului să **instaleze aplicații necunoscute**, apoi apasă **Instalează**.
+
+YukiTube cântă și cu ecranul stins sau din altă aplicație (butoane în notificare și pe ecranul de blocare). Înapoi sau Acasă îl lasă să cânte; ca să-l închizi: ⚙ Setări → Închide YukiTube, ✕ din notificare, sau glisează-l din aplicațiile recente. Partajează un link YouTube către YukiTube ca să-l redai. Actualizările se instalează din ⚙ Setări → Actualizează acum.

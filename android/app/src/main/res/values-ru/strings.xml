@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search">Поиск</string>
+    <string name="search_hint">Поиск на YouTube…</string>
+    <string name="playlists">Плейлисты</string>
+    <string name="queue">Очередь</string>
+    <string name="video_mode">Режим видео</string>
+    <string name="full_screen">Полный экран</string>
+    <string name="account_signin">Войти в аккаунт Google</string>
+    <string name="account_signed_in">Аккаунт Google подключён</string>
+    <string name="sign_out">Выйти</string>
+    <string name="signin_title">Вход — окно закроется само, когда закончите</string>
+    <string name="close">Закрыть</string>
+    <string name="settings">Настройки</string>
+    <string name="music_for_you">МУЗЫКА ДЛЯ ВАС</string>
+    <string name="results">РЕЗУЛЬТАТЫ</string>
+    <string name="reload">Обновить</string>
+    <string name="loading">Загрузка…</string>
+    <string name="starting">Запуск YouTube…</string>
+    <string name="nothing_playing">Ничего не играет</string>
+    <string name="nothing_hint">Найдите или выберите что-нибудь ниже.</string>
+    <string name="up_next" formatted="true">Далее: %1$s</string>
+    <string name="lists_mine">МОИ</string>
+    <string name="lists_suggested">ОТ YOUTUBE</string>
+    <string name="lists_back">‹ ПЛЕЙЛИСТЫ</string>
+    <string name="lists_signin">Войдите в Google, чтобы увидеть свои плейлисты.</string>
+    <string name="play_all">Играть всё</string>
+    <string name="songs">Песни</string>
+    <string name="queue_now">сейчас</string>
+    <string name="queue_next">далее</string>
+    <string name="queue_empty">Пока ничего не играет. Включите что-нибудь, и очередь появится здесь.</string>
+    <string name="empty">Здесь пусто.</string>
+    <string name="error" formatted="true">Не удалось загрузить: %1$s</string>
+    <string name="skin">Скин</string>
+    <string name="language">Язык</string>
+    <string name="lang_system">Системный</string>
+    <string name="updates">Обновления</string>
+    <string name="check_now">Проверить</string>
+    <string name="update_now">Обновить сейчас</string>
+    <string name="up_to_date">YukiTube обновлён.</string>
+    <string name="update_available" formatted="true">Доступна версия YukiTube %1$s.</string>
+    <string name="update_failed" formatted="true">Ошибка обновления: %1$s</string>
+    <string name="downloading" formatted="true">Загрузка… %1$d%%</string>
+    <string name="update_install_perm">Разрешите YukiTube устанавливать обновления и снова нажмите «Обновить сейчас».</string>
+    <string name="version" formatted="true">Версия %1$s</string>
+    <string name="credit">Сделано eudunitrwe с помощью Claude Code</string>
+    <string name="notif_channel">Воспроизведение</string>
+    <string name="play">Играть</string>
+    <string name="pause">Пауза</string>
+    <string name="next">Следующая</string>
+    <string name="prev">Предыдущая</string>
+    <string name="loop">Повтор</string>
+    <string name="like">Нравится</string>
+    <string name="speed">Скорость</string>
+    <string name="exit">Выйти из YukiTube</string>
+    <string name="ad">Пропуск рекламы…</string>
+    <string name="background_hint">Играет и с выключенным экраном. Выход — в ⚙ или в уведомлении.</string>
+</resources>
